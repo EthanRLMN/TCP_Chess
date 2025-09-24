@@ -17,8 +17,8 @@ public partial class ChessGameManager : MonoBehaviour
     public static ChessGameManager Instance {
         get
         {
-            if (instance == null)
-                instance = FindObjectOfType<ChessGameManager>();
+            if (!instance)
+                instance = FindFirstObjectByType<ChessGameManager>();
             return instance;
         }
     }
@@ -267,8 +267,8 @@ public partial class ChessGameManager : MonoBehaviour
         if (OnScoreUpdated != null)
             OnScoreUpdated(scores[0], scores[1]);
     }
-
-    void Update()
+    
+    private void Update()
     {
         // human player always plays white
         if (teamTurn == EChessTeam.White)
