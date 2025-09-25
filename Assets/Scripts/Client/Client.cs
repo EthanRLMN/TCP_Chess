@@ -110,8 +110,11 @@ public class Client : MonoBehaviour
     }
 
 
-    public string ReceiveChatMessage()
+    private string ReceiveChatMessage()
     {
+        if (m_clientSocket == null || !m_clientSocket.Connected)
+            return string.Empty;
+        
         try
         {
             byte[] messageBytes = new byte[1024];
