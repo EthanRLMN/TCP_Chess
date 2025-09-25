@@ -122,8 +122,6 @@ public class Client : MonoBehaviour
         catch (Exception e)
         {
             //Debug.LogError("Error receiving message : " + e.Message);
-            //return null;
-
         }
         return string.Empty;
     }

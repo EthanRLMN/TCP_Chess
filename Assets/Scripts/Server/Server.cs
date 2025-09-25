@@ -28,11 +28,11 @@ public class Server
 
     public void ConnectionTest()
     {
-        Binding();
+        HandleUsersConnection();
         
         string message = ReceiveMessage();
         if (message != string.Empty) 
-            Debug.Log("Server has received message : " + message);
+            Debug.Log("[Server] Received message : " + message);
     }
 
 
@@ -50,24 +50,24 @@ public class Server
     }
 
 
-    public void InitHosting()
+    private void InitHosting()
     {
-        Debug.Log("Starting Server");
+        Debug.Log("[Server] Starting Server");
 
         m_socket.Bind(m_localEP);
         m_socket.Listen(Listeners);
-
-        //SendingMessage("Hello from Server");
-
-        //HandleShutdown();
     }
 
 
-    public void Binding()
+    private void HandleUsersConnection()
     {
+        if (m_clientSocket == null || !m_clientSocket.Connected || m_socket == null)
+            return;
+        
         try
         {
-            //Debug.Log("Waiting for a connection...");
+            Debug.Log("[Server] Waiting for a user connection...");
+            
             // blocking instruction
             m_socket.Blocking = false;
             m_clientSocket = m_socket.Accept();
@@ -76,13 +76,13 @@ public class Server
         }
         catch (Exception e)
         {
-            //Debug.Log("error " + e);
-            //HandleShutdown();
+            Debug.Log("[Server] Error while trying to setup client socket connection : " + e);
+            HandleShutdown();
         }
     }
 
 
-    public void HandleShutdown()
+    private void HandleShutdown()
     {
         if (m_socket == null)
             return;
@@ -94,7 +94,7 @@ public class Server
         }
         catch (Exception e)
         {
-            Debug.Log("error " + e);
+            Debug.LogError("[Server] Error shutting down server : " + e);
         }
         finally
         {
@@ -110,19 +110,21 @@ public class Server
         byte[] msg = Encoding.ASCII.GetBytes(message);
         try
         {
-            Debug.Log("[Server] Receiver Information : " + m_clientSocket.RemoteEndPoint);
             m_clientSocket.Send(msg);
-            Debug.Log("[Server] Message dispatched successfully!");
+            Debug.Log("[Server] Message dispatched successfully to user!");
         }
         catch (Exception e)
         {
-            //Debug.Log("error sending message : " + e);
+            Debug.LogError("[Server] Error sending message : " + e);
         }
     }
 
 
-    public string ReceiveMessage()
+    private string ReceiveMessage()
     {
+        if (m_clientSocket == null || !m_clientSocket.Connected || m_socket == null)
+            return string.Empty;
+        
         try
         {
             byte[] messageReceived = new byte[1024];
@@ -131,7 +133,7 @@ public class Server
         }
         catch (Exception e)
         {
-            //Debug.Log("error receiving message : " + e);
+            Debug.LogError("[Server] Error receiving message : " + e);
         }
 
         return string.Empty;
