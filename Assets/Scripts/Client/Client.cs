@@ -62,7 +62,7 @@ public class Client : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError("[Client] Error connecting to server : " + e.Message);
-            Disconnect();
+            //Disconnect();
         }
     }
 
@@ -94,8 +94,11 @@ public class Client : MonoBehaviour
     public void SendChatMessage(string message)
     {
         if (m_clientSocket == null || !m_clientSocket.Connected)
+        {
+            Debug.LogError("[Client] Error while trying to send chat message : " + message);
             return;
-        
+        }
+
         byte[] messageBytes = System.Text.Encoding.ASCII.GetBytes(message);
 
         try
@@ -114,7 +117,8 @@ public class Client : MonoBehaviour
     {
         if (m_clientSocket == null || !m_clientSocket.Connected)
             return string.Empty;
-        
+
+        Debug.Log("[Client] Receiving chat message : " + m_clientSocket.RemoteEndPoint);
         try
         {
             byte[] messageBytes = new byte[1024];
