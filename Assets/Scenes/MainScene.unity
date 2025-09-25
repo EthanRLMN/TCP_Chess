@@ -131,6 +131,8 @@ GameObject:
   - component: {fileID: 169649588}
   - component: {fileID: 169649587}
   - component: {fileID: 169649589}
+  - component: {fileID: 169649590}
+  - component: {fileID: 169649591}
   m_Layer: 0
   m_Name: ChessGameMgr
   m_TagString: Untagged
@@ -178,6 +180,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1f966f3f774b234eb62f64091d7bd89, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &169649590
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 169649586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2be231375fc20c3468c897cf2e12d4e7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_playerName: Player1
+  m_isOnline: 0
+  m_isPlaying: 1
+--- !u!114 &169649591
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 169649586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fe611086d8498946ba6a0dc128cb1bf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_ipString: 10.2.107.154
+  m_port: 12987
 --- !u!1 &171110028
 GameObject:
   m_ObjectHideFlags: 0
