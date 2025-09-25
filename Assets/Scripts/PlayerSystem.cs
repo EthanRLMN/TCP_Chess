@@ -27,5 +27,11 @@ public class PlayerSystem : MonoBehaviour
         {
             m_client.Disconnect();
         }
+
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            m_client.SendChatMessage("Bla bla");
+        }
+
     }
 }
