@@ -15,7 +15,7 @@ public class GUIManager : MonoBehaviour
         get
         {
             if (instance == null)
-                instance = FindObjectOfType<GUIManager>();
+                instance = FindFirstObjectByType<GUIManager>();
             return instance;
         }
     }

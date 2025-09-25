@@ -1,116 +1,152 @@
 using System;
-using System.Text;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using UnityEngine;
 
-namespace Server
+
+public class Server
 {
-    class Server : MonoBehaviour
+    #region Variables
+
+    [SerializeField] private string m_ipString = "127.0.0.1";
+    [SerializeField] private int m_port = 10147;
+    [SerializeField] private int m_listeners = 2;
+    private Socket m_socket, m_clientSocket;
+    private IPHostEntry m_host;
+    private IPEndPoint m_localEP;
+
+    #endregion
+    
+    
+    #region Getters / Setters
+
+    private string IpAddress
     {
-        Socket socket;
-        int port = 10147; // hard coder
-        IPEndPoint localEP;
-        Socket clientSocket;
-        private IPHostEntry host;
-        private int listener = 2;
-        public Server()
+        get => m_ipString;
+        set => m_ipString = value;
+    }
+
+
+    private int Port
+    {
+        get => m_port;
+        set => m_port = value;
+    }
+
+
+    private int Listeners
+    {
+        get => m_listeners;
+        set => m_listeners = value;
+    }
+    
+    #endregion
+
+
+    #region Custom Functions
+    
+    public void Initialize()
+    {
+        Debug.Log("[Server] Initializing Server...");
+        
+        IPAddress ipAddress = IPAddress.Parse(m_ipString);
+        m_localEP = new IPEndPoint(ipAddress, m_port);
+        m_socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        
+        Debug.Log("[Server] Server initialized\n IP Address : " + ipAddress + ", Port : " + m_port + ", Listeners : " + m_listeners);
+        
+        InitHosting();
+    }
+    
+    
+    public void InitHosting()
+    {
+        Binding();
+
+        //string message = ReceiveMessage();
+        //Debug.Log("Server has received message : " + message);
+
+        //SendingMessage("Hello from Server");
+
+        //HandleShutdown();
+    }
+
+
+    public void Binding()
+    {
+        Debug.Log("Starting Server");
+
+        m_socket.Bind(m_localEP);
+        m_socket.Listen(m_listeners);
+
+        try
         {
-            //create server socket
-            IPAddress ipAdress = IPAddress.Parse("10.2.107.154");
-            localEP = new IPEndPoint(ipAdress, port);
-            socket = new Socket(ipAdress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            Debug.Log("Waiting for a connection...");
+            // blocking instruction
+            m_clientSocket.Blocking = false;
+            m_clientSocket = m_socket.Accept();
+
+            Debug.Log("Accepted Client !");
         }
-
-        public void InitHosting()
+        catch (Exception e)
         {
-            Server server = new Server();
-            server.Binding();
-
-            string message = server.ReceiveMessage();
-            Debug.Log("Server has received message : " + message);
-
-            server.SendingMessage("Hello from Server");
-
-            server.Disconnect();
-            Console.ReadKey();
-        }
-
-        public void Binding()
-        {
-            Debug.Log("Starting Server");
-
-            socket.Bind(localEP);
-            socket.Listen(listener);
-
-            try
-            {
-                Debug.Log("Waiting for a connection...");
-                // blocking instruction
-                clientSocket = socket.Accept();
-
-                Debug.Log("Accepted Client !");
-            }
-            catch (Exception e)
-            {
-                Debug.Log("error " + e.ToString());
-                Disconnect();
-            }
-        }
-
-        public void Disconnect()
-        {
-            if (clientSocket != null)
-            {
-                // shutdown client socket
-                try
-                {
-                    clientSocket.Shutdown(SocketShutdown.Both);
-                }
-                catch (Exception e)
-                {
-                    Debug.Log("error " + e.ToString());
-                }
-                finally
-                {
-                    clientSocket.Close();
-                }
-            }
-
-            if (socket != null)
-            {
-                // server socket : no shutdown necessary
-                socket.Close();
-            }
-        }
-
-        public void SendingMessage(string message)
-        {
-            byte[] msg = Encoding.ASCII.GetBytes(message);
-            try
-            {
-                clientSocket.Send(msg);
-            }
-            catch (Exception e)
-            {
-                Debug.Log("error sending message : " + e.ToString());
-            }
-        }
-
-        public string ReceiveMessage()
-        {
-            try
-            {
-                byte[] messageReceived = new byte[1024];
-                int nbBytes = clientSocket.Receive(messageReceived);
-                return Encoding.ASCII.GetString(messageReceived, 0, nbBytes);
-            }
-            catch (Exception e)
-            {
-                Debug.Log("error receiving message : " + e.ToString());
-            }
-            return String.Empty;
+            Debug.Log("error " + e);
+            HandleShutdown();
         }
     }
-}
 
+
+    public void HandleShutdown()
+    {
+        if (m_clientSocket != null)
+            // shutdown client socket
+            try
+            {
+                m_clientSocket.Shutdown(SocketShutdown.Both);
+            }
+            catch (Exception e)
+            {
+                Debug.Log("error " + e);
+            }
+            finally
+            {
+                m_clientSocket.Close();
+            }
+
+        m_socket?.Close();
+    }
+
+
+    public void SendingMessage(string message)
+    {
+        byte[] msg = Encoding.ASCII.GetBytes(message);
+        try
+        {
+            m_clientSocket.Send(msg);
+        }
+        catch (Exception e)
+        {
+            Debug.Log("error sending message : " + e);
+        }
+    }
+
+
+    public string ReceiveMessage()
+    {
+        try
+        {
+            byte[] messageReceived = new byte[1024];
+            int nbBytes = m_clientSocket.Receive(messageReceived);
+            return Encoding.ASCII.GetString(messageReceived, 0, nbBytes);
+        }
+        catch (Exception e)
+        {
+            Debug.Log("error receiving message : " + e);
+        }
+
+        return string.Empty;
+    }
+
+    #endregion
+}
