@@ -41,6 +41,12 @@ public class ServerManager : MonoBehaviour
             return;
         
         m_server.ConnectionTest();
+        
+        
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            m_server.DispatchMessage("Zebi la mouche");
+        }
     }
 
     #endregion

@@ -29,6 +29,10 @@ public class Server
     public void ConnectionTest()
     {
         Binding();
+        
+        string message = ReceiveMessage();
+        if (message != string.Empty) 
+            Debug.Log("Server has received message : " + message);
     }
 
 
@@ -53,9 +57,6 @@ public class Server
         m_socket.Bind(m_localEP);
         m_socket.Listen(Listeners);
 
-        //string message = ReceiveMessage();
-        //Debug.Log("Server has received message : " + message);
-
         //SendingMessage("Hello from Server");
 
         //HandleShutdown();
@@ -66,30 +67,30 @@ public class Server
     {
         try
         {
-            Debug.Log("Waiting for a connection...");
+            //Debug.Log("Waiting for a connection...");
             // blocking instruction
             m_socket.Blocking = false;
             m_clientSocket = m_socket.Accept();
 
-            Debug.Log("Accepted Client !");
+            //Debug.Log("Accepted Client !");
         }
         catch (Exception e)
         {
-            Debug.Log("error " + e);
-            HandleShutdown();
+            //Debug.Log("error " + e);
+            //HandleShutdown();
         }
     }
 
 
     public void HandleShutdown()
     {
-        if (m_clientSocket == null)
+        if (m_socket == null)
             return;
 
         // shutdown client socket
         try
         {
-            m_clientSocket.Shutdown(SocketShutdown.Both);
+            m_socket.Shutdown(SocketShutdown.Both);
         }
         catch (Exception e)
         {
@@ -97,21 +98,25 @@ public class Server
         }
         finally
         {
-            m_clientSocket.Close();
+            m_socket.Close();
         }
     }
 
 
-    public void SendingMessage(string message)
+    public void DispatchMessage(string message)
     {
+        Debug.Log("[Server] Dispatching message : " + message);
+        
         byte[] msg = Encoding.ASCII.GetBytes(message);
         try
         {
+            Debug.Log("[Server] Receiver Information : " + m_clientSocket.RemoteEndPoint);
             m_clientSocket.Send(msg);
+            Debug.Log("[Server] Message dispatched successfully!");
         }
         catch (Exception e)
         {
-            Debug.Log("error sending message : " + e);
+            //Debug.Log("error sending message : " + e);
         }
     }
 
@@ -126,7 +131,7 @@ public class Server
         }
         catch (Exception e)
         {
-            Debug.Log("error receiving message : " + e);
+            //Debug.Log("error receiving message : " + e);
         }
 
         return string.Empty;
