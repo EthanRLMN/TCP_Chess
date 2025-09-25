@@ -8,7 +8,7 @@ public class Client : MonoBehaviour
 {
     #region Variables
 
-    private string m_ipString = "127.0.0.1";
+    private string m_ipString = "10.2.107.154";
     private int m_port = 10147;
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;

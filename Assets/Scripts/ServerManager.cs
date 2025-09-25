@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 
@@ -32,7 +33,16 @@ public class ServerManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
-    
+
+
+    private void LateUpdate()
+    {
+        if (m_server == null)
+            return;
+        
+        m_server.ConnectionTest();
+    }
+
     #endregion
 
 
