@@ -57,11 +57,11 @@ public class Client : MonoBehaviour
         try
         {
             m_clientSocket.Connect(ipEndPoint);
-            Debug.Log("Client connected to server : " + ipEndPoint);
+            Debug.Log("[Client] Connected to server : " + ipEndPoint);
         }
         catch (Exception e)
         {
-            Debug.LogError("Error connecting to server : " + e.Message);
+            Debug.LogError("[Client] Error connecting to server : " + e.Message);
             Disconnect();
         }
     }
@@ -77,16 +77,16 @@ public class Client : MonoBehaviour
         try
         {
             m_clientSocket.Shutdown(SocketShutdown.Both);
-            Debug.Log("Disconnecting client from server " + m_ipAddress + "...");
+            Debug.Log("[Client] Disconnecting client from server " + m_ipAddress + "...");
         }
         catch (Exception e)
         {
-            Debug.LogError("Error disconnecting from server : " + e.Message);
+            Debug.LogError("[Client] Error disconnecting from server : " + e.Message);
         }
         finally
         {
             m_clientSocket.Close();
-            Debug.Log("Client successfully disconnected from server : " + m_ipAddress + "!");
+            Debug.Log("[Client] successfully disconnected from server : " + m_ipAddress + "!");
         }
     }
 
@@ -101,11 +101,11 @@ public class Client : MonoBehaviour
         try
         {
             m_clientSocket.Send(messageBytes);
-            Debug.Log("Client sent message : " + message);
+            Debug.Log("[Client] sent message : " + message);
         }
         catch (Exception e)
         {
-            Debug.LogError("Error sending message : " + e.Message);
+            Debug.LogError("[Client] Error sending message : " + e.Message);
         }
     }
 
@@ -121,9 +121,7 @@ public class Client : MonoBehaviour
         }
         catch (Exception e)
         {
-            //Debug.LogError("Error receiving message : " + e.Message);
-            //return null;
-
+            Debug.LogError("[Client] Error receiving message : " + e.Message);
         }
         return string.Empty;
     }
