@@ -40,7 +40,7 @@ public class ServerManager : MonoBehaviour
         if (m_server == null)
             return;
         
-        m_server.ConnectionTest();
+        m_server.Update();
         
         
         if (Input.GetKeyDown(KeyCode.X))

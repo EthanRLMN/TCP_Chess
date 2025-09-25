@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
 
+
 public class Server
 {
     #region Variables
@@ -20,120 +21,133 @@ public class Server
     public string IpAddress { get; set; } = "10.2.107.154";
     public int Port { get; set; } = 10147;
     public int Listeners { get; set; } = 2;
+    public bool HasClient => m_clientSocket != null && m_clientSocket.Connected;
 
     #endregion
 
 
     #region Custom Functions
+    
+    public void Initialize()
+    {
+        Debug.Log("[Server] Initializing...");
 
-    public void ConnectionTest()
+        IPAddress ipAddress = IPAddress.Parse(IpAddress);
+        m_localEP = new IPEndPoint(ipAddress, Port);
+        
+        m_socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        m_socket.Blocking = false;
+        m_socket.Bind(m_localEP);
+        m_socket.Listen(Listeners);
+
+        Debug.Log($"[Server] Listening on {IpAddress}:{Port}");
+    }
+
+
+    public void Update()
     {
         HandleUsersConnection();
         
         string message = ReceiveMessage();
-        if (message != string.Empty) 
-            Debug.Log("[Server] Received message : " + message);
-    }
-
-
-    public void Initialize()
-    {
-        Debug.Log("[Server] Initializing Server...");
-
-        IPAddress ipAddress = IPAddress.Parse(IpAddress);
-        m_localEP = new IPEndPoint(ipAddress, Port);
-        m_socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-        Debug.Log("[Server] Server initialized\n IP Address : " + ipAddress + ", Port : " + Port + ", Listeners : " + Listeners);
-
-        InitHosting();
-    }
-
-
-    private void InitHosting()
-    {
-        Debug.Log("[Server] Starting Server");
-
-        m_socket.Bind(m_localEP);
-        m_socket.Listen(Listeners);
+        if (!string.IsNullOrEmpty(message)) 
+            Debug.Log("[Server] Received : " + message);
     }
 
 
     private void HandleUsersConnection()
     {
+        if (m_socket == null)
+            return;
+        
         try
         {
             Debug.Log("[Server] Waiting for a user connection...");
-            
-            // blocking instruction
-            m_socket.Blocking = false;
-            m_clientSocket = m_socket.Accept();
 
-            //Debug.Log("Accepted Client !");
+            // Ensure there's a connection attempt before accepting anything
+            if (!m_socket.Poll(0, SelectMode.SelectRead))
+                return;
+            
+            m_clientSocket = m_socket.Accept();
+            m_clientSocket.Blocking = false;
+                
+            Debug.Log("[Server] User connection allowed!");
         }
-        catch (Exception e)
+        catch (SocketException se)
         {
-            Debug.Log("[Server] Error while trying to setup client socket connection : " + e);
-            //HandleShutdown();
+            if (se.SocketErrorCode != SocketError.WouldBlock)
+                Debug.Log("[Server] Connection authorization error : " + se.Message);
         }
     }
 
 
-    private void HandleShutdown()
+    private void Shutdown()
     {
-        if (m_socket == null)
-            return;
-        
-        // shutdown client socket
         try
         {
-            m_socket.Shutdown(SocketShutdown.Both);
+            if (m_clientSocket != null)
+            { 
+                m_clientSocket.Shutdown(SocketShutdown.Both);
+                m_clientSocket.Close();
+                m_clientSocket = null;
+            }
+
+            if (m_socket != null)
+            {
+                m_socket.Shutdown(SocketShutdown.Both);
+                m_socket.Close();
+                m_socket = null;
+            }
+            
+            Debug.Log("[Server] Shutdown done!");
         }
         catch (Exception e)
         {
             Debug.LogError("[Server] Error shutting down server : " + e);
-        }
-        finally
-        {
-            m_socket.Close();
         }
     }
 
 
     public void DispatchMessage(string message)
     {
-        Debug.Log("[Server] Dispatching message : " + message);
+        if (!HasClient)
+        {
+            Debug.Log("[Server] There's no client to dispatch message to!");
+            return;
+        }
         
-        byte[] msg = Encoding.ASCII.GetBytes(message);
+        byte[] msg = Encoding.UTF8.GetBytes(message);
         try
         {
             m_clientSocket.Send(msg);
-            Debug.Log("[Server] Message dispatched successfully to user!");
         }
-        catch (Exception e)
+        catch (SocketException se)
         {
-            Debug.LogError("[Server] Error sending message : " + e);
+            if (se.SocketErrorCode != SocketError.WouldBlock) 
+                Debug.LogError("[Server] Error sending message : " + se.Message);
         }
     }
 
 
     private string ReceiveMessage()
     {
-        if (m_clientSocket == null)
+        if (!HasClient)
             return string.Empty;
         
         try
         {
-            byte[] messageReceived = new byte[1024];
-            int nbBytes = m_clientSocket.Receive(messageReceived);
+            if (m_clientSocket.Available == 0)
+                return string.Empty;
             
-            return Encoding.ASCII.GetString(messageReceived, 0, nbBytes);
+            byte[] messageBytes = new byte[1024];
+            int receivedMessage = m_clientSocket.Receive(messageBytes);
+            
+            return Encoding.UTF8.GetString(messageBytes, 0, receivedMessage);
         }
-        catch (Exception e)
+        catch (SocketException se)
         {
-            //Debug.LogError("[Server] Error receiving message : " + e);
+            if (se.SocketErrorCode != SocketError.WouldBlock)
+                Debug.LogError("[Server] Error receiving message : " + se.Message);
         }
-
         return string.Empty;
     }
 
