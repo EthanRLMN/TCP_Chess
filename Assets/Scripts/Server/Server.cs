@@ -9,9 +9,9 @@ public class Server
 {
     #region Variables
 
-    [SerializeField] private string m_ipString = "127.0.0.1";
-    [SerializeField] private int m_port = 10147;
-    [SerializeField] private int m_listeners = 2;
+    private string m_ipString = "127.0.0.1";
+    private int m_port = 10147;
+    private int m_listeners = 2;
     private Socket m_socket, m_clientSocket;
     private IPHostEntry m_host;
     private IPEndPoint m_localEP;
@@ -21,21 +21,21 @@ public class Server
     
     #region Getters / Setters
 
-    private string IpAddress
+    public string IpAddress
     {
         get => m_ipString;
         set => m_ipString = value;
     }
 
 
-    private int Port
+    public int Port
     {
         get => m_port;
         set => m_port = value;
     }
 
 
-    private int Listeners
+    public int Listeners
     {
         get => m_listeners;
         set => m_listeners = value;
