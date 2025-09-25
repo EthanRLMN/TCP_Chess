@@ -61,12 +61,6 @@ public class Server
 
     private void HandleUsersConnection()
     {
-        if (m_clientSocket == null || !m_clientSocket.Connected)
-        {
-            //Debug.LogWarning("[Server] Client not connected");
-            return;
-        }
-
         try
         {
             Debug.Log("[Server] Waiting for a user connection...");
@@ -87,12 +81,6 @@ public class Server
 
     private void HandleShutdown()
     {
-        if (m_socket == null)
-        {
-            Debug.Log("[Server] Client not connected");
-            return;
-        }
-
         // shutdown client socket
         try
         {
@@ -100,7 +88,7 @@ public class Server
         }
         catch (Exception e)
         {
-            Debug.LogError("[Server] Error shutting down server : " + e);
+            //Debug.LogError("[Server] Error shutting down server : " + e);
         }
         finally
         {
@@ -128,10 +116,6 @@ public class Server
 
     private string ReceiveMessage()
     {
-        if (m_clientSocket == null || !m_clientSocket.Connected)
-            return string.Empty;
-        
-        Debug.Log("[Server] Receiving message : " + m_clientSocket.RemoteEndPoint);
         try
         {
             byte[] messageReceived = new byte[1024];
@@ -140,7 +124,7 @@ public class Server
         }
         catch (Exception e)
         {
-            Debug.LogError("[Server] Error receiving message : " + e);
+            //Debug.LogError("[Server] Error receiving message : " + e);
         }
 
         return string.Empty;

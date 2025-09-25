@@ -8,8 +8,8 @@ public class Client : MonoBehaviour
 {
     #region Variables
 
-    private string m_ipString = "10.2.107.154";
-    private int m_port = 10147;
+    [SerializeField] private string m_ipString = "10.2.107.154";
+    [SerializeField] private int m_port = 10147;
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;
 
@@ -28,7 +28,6 @@ public class Client : MonoBehaviour
 
     private void LateUpdate()
     {
-        PingServer();
         string message = ReceiveChatMessage();
         if(message != string.Empty)
         {
@@ -65,14 +64,28 @@ public class Client : MonoBehaviour
             //Disconnect();
         }
     }
+    
+    
+    public void ConnectAttempt(string ip, int port)
+    {
+        SetupClient();
+        IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
+
+        try
+        {
+            m_clientSocket.Connect(ipEndPoint);
+            Debug.Log("[Client] Connected to server : " + ipEndPoint);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[Client] Error connecting to server : " + e.Message);
+            //Disconnect();
+        }
+    }
 
 
     public void Disconnect()
     {
-        // Do nothing if there is no existing socket
-        if (m_clientSocket == null || !m_clientSocket.Connected)
-            return;
-
         // Attempt to shut down client connection to server properly
         try
         {
@@ -93,12 +106,6 @@ public class Client : MonoBehaviour
 
     public void SendChatMessage(string message)
     {
-        if (m_clientSocket == null || !m_clientSocket.Connected)
-        {
-            Debug.LogError("[Client] Error while trying to send chat message : " + message);
-            return;
-        }
-
         byte[] messageBytes = System.Text.Encoding.ASCII.GetBytes(message);
 
         try
@@ -115,10 +122,6 @@ public class Client : MonoBehaviour
 
     private string ReceiveChatMessage()
     {
-        if (m_clientSocket == null || !m_clientSocket.Connected)
-            return string.Empty;
-
-        Debug.Log("[Client] Receiving chat message : " + m_clientSocket.RemoteEndPoint);
         try
         {
             byte[] messageBytes = new byte[1024];
@@ -128,7 +131,7 @@ public class Client : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError("[Client] Error receiving message : " + e.Message);
+            //Debug.LogError("[Client] Error receiving message : " + e.Message);
         }
         return string.Empty;
     }
