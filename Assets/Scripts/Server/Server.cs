@@ -81,6 +81,9 @@ public class Server
 
     private void HandleShutdown()
     {
+        if (m_socket == null)
+            return;
+        
         // shutdown client socket
         try
         {
@@ -88,7 +91,7 @@ public class Server
         }
         catch (Exception e)
         {
-            //Debug.LogError("[Server] Error shutting down server : " + e);
+            Debug.LogError("[Server] Error shutting down server : " + e);
         }
         finally
         {
@@ -116,10 +119,14 @@ public class Server
 
     private string ReceiveMessage()
     {
+        if (m_clientSocket == null)
+            return string.Empty;
+        
         try
         {
             byte[] messageReceived = new byte[1024];
             int nbBytes = m_clientSocket.Receive(messageReceived);
+            
             return Encoding.ASCII.GetString(messageReceived, 0, nbBytes);
         }
         catch (Exception e)
