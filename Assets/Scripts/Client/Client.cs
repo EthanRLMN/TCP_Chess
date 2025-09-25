@@ -29,6 +29,11 @@ public class Client : MonoBehaviour
     private void LateUpdate()
     {
         PingServer();
+        string message = ReceiveChatMessage();
+        if(message != string.Empty)
+        {
+            Debug.Log(message);
+        }
     }
 
     #endregion
@@ -40,6 +45,7 @@ public class Client : MonoBehaviour
     {
         m_ipAddress = IPAddress.Parse(m_ipString);
         m_clientSocket = new Socket(m_ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        m_clientSocket.Blocking = false;    
     }
     
     
@@ -111,13 +117,15 @@ public class Client : MonoBehaviour
             byte[] messageBytes = new byte[1024];
             int message = m_clientSocket.Receive(messageBytes);
             
-            return System.Text.Encoding.ASCII.GetString(messageBytes, 0, messageBytes.Length);
+            return System.Text.Encoding.ASCII.GetString(messageBytes, 0, message);
         }
         catch (Exception e)
         {
-            Debug.LogError("Error receiving message : " + e.Message);
-            return null;
+            //Debug.LogError("Error receiving message : " + e.Message);
+            //return null;
+
         }
+        return string.Empty;
     }
 
 
