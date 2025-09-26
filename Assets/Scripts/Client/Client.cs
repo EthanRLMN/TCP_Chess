@@ -143,7 +143,7 @@ public class Client : MonoBehaviour
 
     private string ReceiveChatMessage()
     {
-        if (IsConnected)
+        if (!IsConnected)
             return string.Empty;
 
         try
