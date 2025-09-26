@@ -34,7 +34,7 @@ public class Client : MonoBehaviour
             return;
         
         string message = ReceiveChatMessage();
-        if (string.IsNullOrEmpty(message))
+        if (!string.IsNullOrEmpty(message))
             Debug.Log("[Received] Received : " + message);
     }
 
@@ -131,6 +131,7 @@ public class Client : MonoBehaviour
         try
         {
             m_clientSocket.Send(messageBytes);
+            Debug.Log("[Client] " + message);
         }
         catch (SocketException se)
         {

@@ -61,8 +61,6 @@ public class Server
         
         try
         {
-            Debug.Log("[Server] Waiting for a user connection...");
-
             // Ensure there's a connection attempt before accepting anything
             if (!m_socket.Poll(0, SelectMode.SelectRead))
                 return;
@@ -119,6 +117,7 @@ public class Server
         try
         {
             m_clientSocket.Send(msg);
+            Debug.Log("[Server] " + message);
         }
         catch (SocketException se)
         {
@@ -140,6 +139,8 @@ public class Server
             
             byte[] messageBytes = new byte[1024];
             int receivedMessage = m_clientSocket.Receive(messageBytes);
+            
+            Debug.LogWarning("[Server] Has received message!");
             
             return Encoding.UTF8.GetString(messageBytes, 0, receivedMessage);
         }
