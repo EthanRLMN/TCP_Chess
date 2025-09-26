@@ -134,9 +134,12 @@ public class Server
         
         try
         {
-            if (m_clientSocket.Available == 0)
+            /*if (m_clientSocket.Available == 0)
+            {
+                Debug.Log("[Server] Not available anymore!");
                 return string.Empty;
-            
+            }*/
+
             byte[] messageBytes = new byte[1024];
             int receivedMessage = m_clientSocket.Receive(messageBytes);
             

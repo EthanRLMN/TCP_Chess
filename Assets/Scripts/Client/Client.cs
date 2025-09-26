@@ -125,7 +125,8 @@ public class Client : MonoBehaviour
     {
         if (!IsConnected)
             return;
-        
+
+        Debug.LogWarning("[Client] is connected!");
         byte[] messageBytes = Encoding.ASCII.GetBytes(message);
 
         try
