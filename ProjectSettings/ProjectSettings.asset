@@ -910,6 +910,7 @@ PlayerSettings:
     Hub: 0
     Purchasing: 0
     UNet: 0
+    Unity Ads: 0
     Unity_Ads: 0
   luminIcon:
     m_Name: 
@@ -932,11 +933,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 0
   windowsGamepadBackendHint: 0
-  cloudProjectId: 
+  cloudProjectId: 057b540f-076e-4f4f-8faa-06f4a004b0b6
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: 
-  organizationId: 
+  projectName: ChessGame
+  organizationId: unity_bd1310d6c8482b51f9c6
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 1
   hmiLoadingImage: {fileID: 0}

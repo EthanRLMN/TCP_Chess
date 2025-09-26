@@ -27,14 +27,14 @@ public class Server
 
 
     #region Custom Functions
-    
+
     public void Initialize()
     {
         Debug.Log("[Server] Initializing...");
 
-        IPAddress ipAddress = IPAddress.Parse(IpAddress);
+        IPAddress ipAddress = IPAddress.Loopback;
         m_localEP = new IPEndPoint(ipAddress, Port);
-        
+
         m_socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         m_socket.Blocking = false;
         m_socket.Bind(m_localEP);
@@ -47,9 +47,9 @@ public class Server
     public void Update()
     {
         HandleUsersConnection();
-        
+
         string message = ReceiveMessage();
-        if (message != string.Empty) 
+        if (message != string.Empty)
             Debug.Log("[Server] Received : " + message);
     }
 
@@ -58,16 +58,16 @@ public class Server
     {
         if (m_socket == null)
             return;
-        
+
         try
         {
             // Ensure there's a connection attempt before accepting anything
             if (!m_socket.Poll(0, SelectMode.SelectRead))
                 return;
-            
+
             m_clientSocket = m_socket.Accept();
             m_clientSocket.Blocking = false;
-                
+
             Debug.Log("[Server] User connection allowed!");
         }
         catch (SocketException se)
@@ -83,7 +83,7 @@ public class Server
         try
         {
             if (m_clientSocket != null)
-            { 
+            {
                 m_clientSocket.Shutdown(SocketShutdown.Both);
                 m_clientSocket.Close();
                 m_clientSocket = null;
@@ -95,7 +95,7 @@ public class Server
                 m_socket.Close();
                 m_socket = null;
             }
-            
+
             Debug.Log("[Server] Shutdown done!");
         }
         catch (Exception e)
@@ -112,7 +112,7 @@ public class Server
             Debug.Log("[Server] There's no client to dispatch message to!");
             return;
         }
-        
+
         byte[] msg = Encoding.ASCII.GetBytes(message);
         try
         {
@@ -121,7 +121,7 @@ public class Server
         }
         catch (SocketException se)
         {
-            if (se.SocketErrorCode != SocketError.WouldBlock) 
+            if (se.SocketErrorCode != SocketError.WouldBlock)
                 Debug.LogError("[Server] Error sending message : " + se.Message);
         }
     }
@@ -131,29 +131,34 @@ public class Server
     {
         if (!HasClient)
             return string.Empty;
-        
+
         try
         {
-            /*if (m_clientSocket.Available == 0)
+            if (m_clientSocket.Poll(0, SelectMode.SelectRead))
             {
-                Debug.Log("[Server] Not available anymore!");
-                return string.Empty;
-            }*/
+                if (m_clientSocket.Available == 0)
+                {
+                    Debug.Log("[Server] Client socket closed.");
+                    m_clientSocket.Close();
+                    m_clientSocket = null;
+                    return string.Empty;
+                }
 
-            byte[] messageBytes = new byte[1024];
-            int receivedMessage = m_clientSocket.Receive(messageBytes);
-            
-            Debug.LogWarning("[Server] Has received message!");
-            
-            return Encoding.ASCII.GetString(messageBytes, 0, receivedMessage);
+                byte[] buffer = new byte[1024];
+                int received = m_clientSocket.Receive(buffer);
+                return Encoding.ASCII.GetString(buffer, 0, received);
+            }
         }
         catch (SocketException se)
         {
             if (se.SocketErrorCode != SocketError.WouldBlock)
                 Debug.LogError("[Server] Error receiving message : " + se.Message);
         }
+
         return string.Empty;
     }
-
-    #endregion
+    
+#endregion
+    
+    
 }

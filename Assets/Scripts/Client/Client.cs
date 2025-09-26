@@ -14,8 +14,25 @@ public class Client : MonoBehaviour
     [SerializeField] private int m_port = 10147;
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;
+    private bool m_isConnecting = false;
 
-    public bool IsConnected => m_clientSocket != null && m_clientSocket.Connected;
+    public bool IsConnected
+    {
+        get
+        {
+            if (m_clientSocket == null)
+                return false;
+
+            try
+            {
+                return !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     #endregion
     
@@ -30,12 +47,18 @@ public class Client : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (m_isConnecting && m_clientSocket.Poll(0, SelectMode.SelectWrite))
+        {
+            m_isConnecting = false;
+            Debug.Log("[Client] Connection completed!");
+        }
+        
         if (!IsConnected)
             return;
         
         string message = ReceiveChatMessage();
         if (!string.IsNullOrEmpty(message))
-            Debug.Log("[Received] Received : " + message);
+            Debug.Log("[Client] Received : " + message);
     }
 
     #endregion
@@ -57,7 +80,7 @@ public class Client : MonoBehaviour
             }
         }
 
-        m_ipAddress = IPAddress.Parse(m_ipString);
+        m_ipAddress = IPAddress.Loopback;
         m_clientSocket = new Socket(m_ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         m_clientSocket.Blocking = false;    
     }
@@ -70,17 +93,21 @@ public class Client : MonoBehaviour
 
         try
         {
+            m_clientSocket.Blocking = false;
             m_clientSocket.Connect(ipEndPoint);
             Debug.Log("[Client] Connected to server : " + ipEndPoint);
         }
         catch (SocketException se)
         {
-            Debug.LogWarning("[Client] Connection in progress or failed : " + se.SocketErrorCode);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError("[Client] Error connecting to server : " + e.Message);
-            //Disconnect();
+            if (se.SocketErrorCode == SocketError.WouldBlock || se.SocketErrorCode == SocketError.InProgress)
+            {
+                m_isConnecting = true;
+                Debug.Log("[Client] Connection in progress...");
+            }
+            else
+            {
+                Debug.LogWarning("[Client] Connection failed : " + se.SocketErrorCode);
+            }
         }
     }
     
@@ -126,7 +153,6 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
 
-        Debug.LogWarning("[Client] is connected!");
         byte[] messageBytes = Encoding.ASCII.GetBytes(message);
 
         try
@@ -149,24 +175,26 @@ public class Client : MonoBehaviour
 
         try
         {
-            // Ensure the socket is available before trying to send messages
-            if (m_clientSocket.Available == 0)
-                return string.Empty;
+            if (m_clientSocket.Poll(0, SelectMode.SelectRead))
+            {
+                if (m_clientSocket.Available == 0)
+                {
+                    Debug.Log("[Client] Connection closed by server!");
+                    Disconnect();
+                    return string.Empty;
+                }
 
-            byte[] messageBytes = new byte[1024];
-            int receivedMessage = m_clientSocket.Receive(messageBytes);
-
-            return Encoding.ASCII.GetString(messageBytes, 0, receivedMessage);
+                byte[] buffer = new byte[1024];
+                int received = m_clientSocket.Receive(buffer);
+                return Encoding.ASCII.GetString(buffer, 0, received);
+            }
         }
         catch (SocketException se)
         {
             if (se.SocketErrorCode != SocketError.WouldBlock)
-                Debug.LogWarning("[Client] Message reception failed : " + se.Message);
+                Debug.LogError("[Client] Receive error : " + se.Message);
         }
-        catch (Exception e)
-        {
-            Debug.LogError("[Client] Error receiving message : " + e.Message);
-        }
+
         return string.Empty;
     }
 
