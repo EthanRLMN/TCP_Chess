@@ -126,7 +126,7 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
         
-        byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+        byte[] messageBytes = Encoding.ASCII.GetBytes(message);
 
         try
         {
@@ -155,7 +155,7 @@ public class Client : MonoBehaviour
             byte[] messageBytes = new byte[1024];
             int receivedMessage = m_clientSocket.Receive(messageBytes);
 
-            return Encoding.UTF8.GetString(messageBytes, 0, receivedMessage);
+            return Encoding.ASCII.GetString(messageBytes, 0, receivedMessage);
         }
         catch (SocketException se)
         {

@@ -49,7 +49,7 @@ public class Server
         HandleUsersConnection();
         
         string message = ReceiveMessage();
-        if (!string.IsNullOrEmpty(message)) 
+        if (message != string.Empty) 
             Debug.Log("[Server] Received : " + message);
     }
 
@@ -113,7 +113,7 @@ public class Server
             return;
         }
         
-        byte[] msg = Encoding.UTF8.GetBytes(message);
+        byte[] msg = Encoding.ASCII.GetBytes(message);
         try
         {
             m_clientSocket.Send(msg);
@@ -142,7 +142,7 @@ public class Server
             
             Debug.LogWarning("[Server] Has received message!");
             
-            return Encoding.UTF8.GetString(messageBytes, 0, receivedMessage);
+            return Encoding.ASCII.GetString(messageBytes, 0, receivedMessage);
         }
         catch (SocketException se)
         {
