@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 
@@ -8,7 +7,7 @@ public class ServerManager : MonoBehaviour
     
     [SerializeField] private string m_ipString = "10.2.107.154";
     [SerializeField] private int m_port = 10147;
-    [SerializeField] private int m_listeners = 2;
+    [SerializeField] private int m_listeners = 3;
     
     private static ServerManager m_instance;
     public static ServerManager Instance => m_instance;
@@ -45,7 +44,7 @@ public class ServerManager : MonoBehaviour
         
         if (Input.GetKeyDown(KeyCode.X))
         {
-            m_server.DispatchMessage("Zebi la mouche");
+            m_server.DispatchMessage("[Server] Sending message to player");
         }
     }
 
@@ -53,8 +52,21 @@ public class ServerManager : MonoBehaviour
 
 
     #region Custom Functions
-    
-    public void InitServer()
+
+    public void ServerCheck()
+    {
+        if (m_server == null)
+        {
+            InitServer();
+            return;
+        }
+        
+        m_server.Shutdown();
+        m_server = null;
+    }
+
+
+    private void InitServer()
     {
         m_server = new Server();
         m_server.Initialize();

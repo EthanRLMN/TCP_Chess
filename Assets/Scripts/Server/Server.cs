@@ -78,29 +78,56 @@ public class Server
     }
 
 
-    private void Shutdown()
+    public void Shutdown()
     {
+        Debug.Log("[Server] Shutting down...");
+
         try
         {
             if (m_clientSocket != null)
             {
-                m_clientSocket.Shutdown(SocketShutdown.Both);
-                m_clientSocket.Close();
-                m_clientSocket = null;
+                try
+                {
+                    if (m_clientSocket.Connected)
+                    {
+                        m_clientSocket.Shutdown(SocketShutdown.Both);
+                        Debug.Log("[Server] Client socket shutdown done!");
+                    }
+                }
+                catch (SocketException se)
+                {
+                    Debug.LogWarning("[Server] Client shutdown skipped (already closed) : " + se.Message);
+                }
+                finally
+                {
+                    m_clientSocket.Close();
+                    m_clientSocket = null;
+                    Debug.Log("[Server] Client socket closed!");
+                }
             }
-
+            
             if (m_socket != null)
             {
-                m_socket.Shutdown(SocketShutdown.Both);
-                m_socket.Close();
-                m_socket = null;
+                try
+                {
+                    m_socket.Close();
+                    Debug.Log("[Server] Listening socket closed!");
+                }
+                catch (SocketException se)
+                {
+                    Debug.LogWarning("[Server] Listening socket close error : " + se.Message);
+                }
+                finally
+                {
+                    m_socket = null;
+                }
             }
 
             Debug.Log("[Server] Shutdown done!");
         }
         catch (Exception e)
         {
-            Debug.LogError("[Server] Error shutting down server : " + e);
+            Debug.LogError("[Server] Unexpected error during shutdown: " + e);
         }
     }
 

@@ -14,7 +14,7 @@ public class Client : MonoBehaviour
     [SerializeField] private int m_port = 10147;
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;
-    private bool m_isConnecting = false;
+    private bool m_isConnecting = false, m_isHost = false, m_isConnected = false;
 
     public bool IsConnected
     {
