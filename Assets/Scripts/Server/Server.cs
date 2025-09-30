@@ -18,8 +18,8 @@ public class Server
 
     #region Getters / Setters
 
-    public string IpAddress { get; set; } = "10.2.107.154";
-    public int Port { get; set; } = 10147;
+    public string IpAddress { get; set; } = "127.0.0.1"; // Use local IP as default
+    public int Port { get; set; } = 10147; // Use 10147 as the default port
     public int Listeners { get; set; } = 2;
     public bool HasClient => m_clientSocket != null && m_clientSocket.Connected;
 
@@ -32,7 +32,7 @@ public class Server
     {
         Debug.Log("[Server] Initializing...");
 
-        IPAddress ipAddress = IPAddress.Loopback;
+        IPAddress ipAddress = IPAddress.Parse(IpAddress);
         m_localEP = new IPEndPoint(ipAddress, Port);
 
         m_socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);

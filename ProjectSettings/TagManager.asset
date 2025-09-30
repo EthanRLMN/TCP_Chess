@@ -5,6 +5,7 @@ TagManager:
   serializedVersion: 3
   tags:
   - Board
+  - Camera
   layers:
   - Default
   - TransparentFX

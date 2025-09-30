@@ -9,12 +9,25 @@ public class ServerManager : MonoBehaviour
     [SerializeField] private int m_port = 10147;
     [SerializeField] private int m_listeners = 3;
     
-    private static ServerManager m_instance;
-    public static ServerManager Instance => m_instance;
+    private static ServerManager m_instance = null;
 
     private Server m_server;
     public Server Server => m_server;
     
+    
+    #endregion
+    
+    
+    #region Instance
+    public static ServerManager Instance
+    {
+        get
+        {
+            if (!m_instance)
+                m_instance = FindFirstObjectByType<ServerManager>();
+            return m_instance;
+        }
+    }
     
     #endregion
     

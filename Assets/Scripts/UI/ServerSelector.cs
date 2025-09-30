@@ -6,13 +6,10 @@ using TMPro;
 public class ServerSelector : MonoBehaviour
 {
     [Header("UI Elements")]
-    [SerializeField] private CanvasGroup m_menuCanvasGroup;
-    
     [SerializeField] private GameObject m_menuRoot;
     [SerializeField] private TMP_InputField m_ipInputField;
     [SerializeField] private Button m_connectDisconnectButton;
     [SerializeField] private Button m_hostButton;
-    
     
     private bool m_isHost = false, m_isConnected = false, m_isOpen = false;
 
@@ -113,15 +110,16 @@ public class ServerSelector : MonoBehaviour
         if (m_isHost)
         {
             Debug.Log("[ServerSelector] Shutting down server...");
-            // TODO: Server.Shutdown();
+            
+            ServerManager.Instance.ServerCheck();
             m_isHost = false;
             m_isConnected = false;
         }
         else
         {
             Debug.Log("[ServerSelector] Starting host server...");
-            // TODO: Server.Initialize();
             
+            ServerManager.Instance.ServerCheck();
             m_isHost = true;
             m_isConnected = true;
         }
@@ -132,21 +130,10 @@ public class ServerSelector : MonoBehaviour
     
     public void ToggleMenu()
     {
-        m_isOpen = !m_isOpen;
-
-        if (m_menuRoot)
-            m_menuRoot.SetActive(m_isOpen);
-
-        if (m_menuCanvasGroup)
-        {
-            m_menuCanvasGroup.interactable = m_isOpen;
-            m_menuCanvasGroup.blocksRaycasts = m_isOpen;
-        }
-
-        Debug.Log($"[ServerSelector] Menu is now {(m_isOpen ? "Opened" : "Closed")}");
-        
         if (m_isOpen)
-            RefreshUI();
+            SetMenuOpen(false);
+        else
+            SetMenuOpen(true);
     }
 
     
@@ -156,12 +143,6 @@ public class ServerSelector : MonoBehaviour
 
         if (m_menuRoot)
             m_menuRoot.SetActive(m_isOpen);
-        
-        if (m_menuCanvasGroup)
-        {
-            m_menuCanvasGroup.interactable = m_isOpen;
-            m_menuCanvasGroup.blocksRaycasts = m_isOpen;
-        }
             
         Debug.Log($"[ServerSelector] Menu is now {(m_isOpen ? "Opened" : "Closed")}");
 
