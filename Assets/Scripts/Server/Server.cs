@@ -50,7 +50,10 @@ public class Server
 
         string message = ReceiveMessage();
         if (message != string.Empty)
+        {
             Debug.Log("[Server] Received : " + message);
+            ChessGameManager.Instance.ApplyNetworkMove(message);
+        }
     }
 
 

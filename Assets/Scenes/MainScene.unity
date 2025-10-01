@@ -152,7 +152,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96b1d690393958d42873d19843288d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isAIEnabled: 1
+  isAIEnabled: 0
 --- !u!4 &169649588
 Transform:
   m_ObjectHideFlags: 0
@@ -2675,9 +2675,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05a1fc2f9e2aad040b042bc8080e3cc4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_ipString: 127.0.0.1
-  m_port: 10147
-  m_listeners: 2
 --- !u!4 &1818765074
 Transform:
   m_ObjectHideFlags: 0

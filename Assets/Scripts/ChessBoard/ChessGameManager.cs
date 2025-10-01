@@ -1,4 +1,7 @@
 ﻿using UnityEngine;
+using System;
+using System.Net;
+using System.Net.Sockets;
 using System.Collections.Generic;
 
 /*
@@ -154,37 +157,80 @@ public partial class ChessGameManager : MonoBehaviour
         }
     }
 
+    public void ApplyNetworkMove(string message)
+    {
+        try
+        {
+            string[] parts = message.Split('-');
+            int from = int.Parse(parts[0]);
+            int to = int.Parse(parts[1]);
+
+            Move move;
+            move.from = from;
+            move.to = to;
+
+            Debug.Log("[ChessGameManager] Applying network move " + message);
+            PlayTurn(move);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[ChessGameManager] Invalid etwork move: " + " | " + e);
+        }
+    }
+
     public void PlayTurn(Move move)
     {
         if (boardState.IsValidMove(teamTurn, move))
         {
             BoardState.EMoveResult result = boardState.PlayUnsafeMove(move);
-            if (result == BoardState.EMoveResult.Promotion)
-            {
-                // instantiate promoted queen gameobject
-                AddQueenAtPos(move.to);
-            }
 
-            EChessTeam otherTeam = (teamTurn == EChessTeam.White) ? EChessTeam.Black : EChessTeam.White;
-            if (boardState.DoesTeamLose(otherTeam))
+            string msg = $"{move.from}-{move.to}";
+            
+            if(ServerManager.Instance != null && ServerManager.Instance.Server != null && ServerManager.Instance.Server.HasClient)
             {
-                // increase score and reset board
-                scores[(int)teamTurn]++;
-                if (OnScoreUpdated != null)
-                    OnScoreUpdated(scores[0], scores[1]);
-
-                PrepareGame(false);
-                // remove extra piece instances if pawn promotions occured
-                teamPiecesArray[0].ClearPromotedPieces();
-                teamPiecesArray[1].ClearPromotedPieces();
+                //If server into client
+                ServerManager.Instance.Server.DispatchMessage(msg);
             }
             else
             {
-                teamTurn = otherTeam;
+                //If client into server
+                Client m_client = FindFirstObjectByType<Client>();
+                if(m_client != null && m_client.IsConnected)
+                {
+                    m_client.SendChatMessage(msg);
+                }
             }
-            // raise event
-            if (OnPlayerTurn != null)
-                OnPlayerTurn(teamTurn == EChessTeam.White);
+
+            UpdatePieces();
+
+            teamTurn = (teamTurn == EChessTeam.White ? EChessTeam.Black : EChessTeam.White);
+
+        //    if (result == BoardState.EMoveResult.Promotion)
+        //    {
+        //        // instantiate promoted queen gameobject
+        //        AddQueenAtPos(move.to);
+        //    }
+
+        //    EChessTeam otherTeam = (teamTurn == EChessTeam.White) ? EChessTeam.Black : EChessTeam.White;
+        //    if (boardState.DoesTeamLose(otherTeam))
+        //    {
+        //        // increase score and reset board
+        //        scores[(int)teamTurn]++;
+        //        if (OnScoreUpdated != null)
+        //            OnScoreUpdated(scores[0], scores[1]);
+
+        //        PrepareGame(false);
+        //        // remove extra piece instances if pawn promotions occured
+        //        teamPiecesArray[0].ClearPromotedPieces();
+        //        teamPiecesArray[1].ClearPromotedPieces();
+        //    }
+        //    else
+        //    {
+        //        teamTurn = otherTeam;
+        //    }
+        //    // raise event
+        //    if (OnPlayerTurn != null)
+        //        OnPlayerTurn(teamTurn == EChessTeam.White);
         }
     }
 

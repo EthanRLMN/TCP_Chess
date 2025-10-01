@@ -58,7 +58,11 @@ public class Client : MonoBehaviour
         
         string message = ReceiveChatMessage();
         if (!string.IsNullOrEmpty(message))
+        {
             Debug.Log("[Client] Received : " + message);
+            ChessGameManager.Instance.ApplyNetworkMove(message);
+        }
+
     }
 
     #endregion
