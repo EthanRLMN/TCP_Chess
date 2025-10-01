@@ -40,7 +40,7 @@ public class Server
         m_socket.Bind(m_localEP);
         m_socket.Listen(Listeners);
 
-        Debug.Log($"[Server] Listening on {IpAddress}:{Port}");
+        Debug.Log($"[Server] Listening on {m_localEP.Address}:{m_localEP.Port}");
     }
 
 
