@@ -16,9 +16,13 @@ public class ServerSelector : MonoBehaviour
     private string m_ipAddress = "127.0.0.1";
     private int m_port = 10147;
 
+    private Client m_client;
+
     
     private void Awake()
     {
+        m_client = FindFirstObjectByType<Client>();
+        
         if (m_ipInputField)
             m_ipInputField.text = $"{m_ipAddress}:{m_port}";
         
@@ -82,7 +86,7 @@ public class ServerSelector : MonoBehaviour
 
         Debug.Log($"[ServerSelector] Trying to connect to {m_ipAddress}:{m_port}...");
         
-        // TODO : Call client instance connection function
+        m_client.ConnectAttempt(m_ipAddress, m_port);
         m_isConnected = true;
 
         RefreshUI();
