@@ -35,7 +35,26 @@ public class ServerSelector : MonoBehaviour
         RefreshUI();
     }
 
-    
+
+    private void LateUpdate()
+    {
+        if (!m_isOpen)
+            return;
+
+        if (!m_ipInputField)
+            return;
+        
+        string input = m_ipInputField.text;
+        string[] parts = input.Split(':');
+        if (parts.Length != 2) 
+            return;
+        
+        m_ipAddress = parts[0];
+        if (!int.TryParse(parts[1], out m_port))
+            m_port = 10147; // Default port
+    }
+
+
     private void RefreshUI()
     {
         if (m_ipInputField)
@@ -72,18 +91,6 @@ public class ServerSelector : MonoBehaviour
 
     private void ConnectToServer()
     {
-        if (m_ipInputField)
-        {
-            string input = m_ipInputField.text;
-            string[] parts = input.Split(':');
-            if (parts.Length == 2)
-            {
-                m_ipAddress = parts[0];
-                if (!int.TryParse(parts[1], out m_port))
-                    m_port = 10147; // Default port
-            }
-        }
-
         Debug.Log($"[ServerSelector] Trying to connect to {m_ipAddress}:{m_port}...");
         
         m_client.ConnectAttempt(m_ipAddress, m_port);
@@ -115,7 +122,7 @@ public class ServerSelector : MonoBehaviour
         {
             Debug.Log("[ServerSelector] Shutting down server...");
             
-            ServerManager.Instance.ServerCheck();
+            ServerManager.Instance.StopServer();
             m_isHost = false;
             m_isConnected = false;
         }
@@ -123,7 +130,8 @@ public class ServerSelector : MonoBehaviour
         {
             Debug.Log("[ServerSelector] Starting host server...");
             
-            ServerManager.Instance.ServerCheck();
+            ServerManager.Instance.StartServer(m_ipAddress, m_port);
+            
             m_isHost = true;
             m_isConnected = true;
         }
@@ -134,10 +142,7 @@ public class ServerSelector : MonoBehaviour
     
     public void ToggleMenu()
     {
-        if (m_isOpen)
-            SetMenuOpen(false);
-        else
-            SetMenuOpen(true);
+        SetMenuOpen(!m_isOpen);
     }
 
     

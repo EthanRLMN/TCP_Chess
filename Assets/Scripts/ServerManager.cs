@@ -5,12 +5,7 @@ public class ServerManager : MonoBehaviour
 {
     #region Variables
     
-    [SerializeField] private string m_ipString = "10.2.107.154";
-    [SerializeField] private int m_port = 10147;
-    [SerializeField] private int m_listeners = 3;
-    
     private static ServerManager m_instance = null;
-
     private Server m_server;
     public Server Server => m_server;
     
@@ -76,27 +71,34 @@ public class ServerManager : MonoBehaviour
 
     #region Custom Functions
 
-    public void ServerCheck()
+    public void StartServer(string ip = "127.0.0.1", int port = 10147, int listeners = 2)
+    {
+        if (m_server != null)
+            StopServer();
+        
+        InitServer(ip, port, listeners);
+    }
+
+
+    public void StopServer()
     {
         if (m_server == null)
-        {
-            InitServer();
             return;
-        }
         
         m_server.Shutdown();
         m_server = null;
     }
 
 
-    private void InitServer()
+    private void InitServer(string ip, int port, int listeners)
     {
         m_server = new Server();
-        m_server.Initialize();
         
-        IpAddress = m_ipString;
-        Port = m_port;
-        MaxPlayers = m_listeners;
+        IpAddress = ip;
+        Port = port;
+        MaxPlayers = listeners;
+        
+        m_server.Initialize();
     }
 
     #endregion
