@@ -80,7 +80,7 @@ public class Client : MonoBehaviour
             }
         }
 
-        m_ipAddress = IPAddress.Loopback;
+        m_ipAddress = IPAddress.Parse(m_ipString);
         m_clientSocket = new Socket(m_ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         m_clientSocket.Blocking = false;    
     }
