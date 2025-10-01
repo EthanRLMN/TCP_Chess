@@ -93,9 +93,7 @@ public class Client : MonoBehaviour
 
         try
         {
-            m_clientSocket.Blocking = false;
             m_clientSocket.Connect(ipEndPoint);
-            Debug.Log("[Client] Connected to server : " + ipEndPoint);
         }
         catch (SocketException se)
         {
