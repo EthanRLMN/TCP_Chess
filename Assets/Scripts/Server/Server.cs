@@ -140,11 +140,11 @@ public class Server
             return;
         }
 
-        byte[] msg = Encoding.ASCII.GetBytes(message);
+        byte[] msg = Encoding.UTF8.GetBytes(message);
         try
         {
             m_clientSocket.Send(msg);
-            Debug.Log("[Server] " + message);
+            Debug.Log(message);
         }
         catch (SocketException se)
         {
@@ -173,7 +173,7 @@ public class Server
 
                 byte[] buffer = new byte[1024];
                 int received = m_clientSocket.Receive(buffer);
-                return Encoding.ASCII.GetString(buffer, 0, received);
+                return Encoding.UTF8.GetString(buffer, 0, received);
             }
         }
         catch (SocketException se)
