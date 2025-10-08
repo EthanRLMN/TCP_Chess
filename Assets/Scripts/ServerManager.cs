@@ -31,14 +31,9 @@ public class ServerManager : MonoBehaviour
     private void Awake()
     {
         if (!m_instance)
-        {
             m_instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
         else
-        {
             Destroy(gameObject);
-        }
     }
 
 
