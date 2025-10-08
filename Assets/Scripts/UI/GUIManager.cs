@@ -65,7 +65,7 @@ public class GUIManager : MonoBehaviour
 
         Debug.Log($"[GUIManager] Local player chose {team}");
 
-        // Si on est serveur : on envoie la couleur opposée au client ET on démarre localement
+        // If you are the host, send back the opposit color to the client 
         if (ServerManager.Instance?.Server != null && ServerManager.Instance.Server.HasClient)
         {
             var clientTeam = (team == ChessGameManager.EChessTeam.White)
@@ -75,12 +75,11 @@ public class GUIManager : MonoBehaviour
             Debug.Log($"[GUIManager] Server sending TEAM:{clientTeam}");
             ServerManager.Instance.Server.DispatchMessage($"TEAM:{clientTeam}");
 
-            // Le serveur démarre sa partie avec sa couleur choisie
+            // Host start game with his chosen color
             ChessGameManager.Instance.StartNetworkGame(team);
         }
         else
         {
-            // Côté client : envoie son choix au serveur, mais n'appelle PAS StartNetworkGame()
             var client = FindFirstObjectByType<Client>();
             if (client != null && client.IsConnected)
             {

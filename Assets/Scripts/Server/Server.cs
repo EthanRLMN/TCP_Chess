@@ -65,7 +65,7 @@ public class Server
 
                 Debug.Log("[Server] Received : " + fullMessage);
 
-                // Gestion des équipes
+                // Manage teams
                 if (fullMessage.StartsWith("TEAM:"))
                 {
                     string clientTeam = fullMessage.Substring(5);
@@ -74,7 +74,7 @@ public class Server
                     Debug.Log($"[Server] Client chose {clientTeam}, sending back TEAM:{serverTeam}");
                     DispatchMessage($"TEAM:{serverTeam}");
 
-                    // Le serveur démarre aussi sa partie avec sa couleur opposée
+                    // Server start also with opposit color
                     ChessGameManager.EChessTeam localTeam =
                         (ChessGameManager.EChessTeam)Enum.Parse(typeof(ChessGameManager.EChessTeam), serverTeam);
                     ChessGameManager.Instance.StartNetworkGame(localTeam);
@@ -82,9 +82,9 @@ public class Server
                     continue;
                 }
 
-                // Gestion du coup
+                // Manage move
                 ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
-                DispatchMessage(fullMessage); // renvoi au client
+                DispatchMessage(fullMessage); // send back to the client
             }
         }
     }

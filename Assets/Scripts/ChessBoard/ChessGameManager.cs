@@ -186,20 +186,26 @@ public partial class ChessGameManager : MonoBehaviour
         if (boardState.IsValidMove(teamTurn, move))
         {
             BoardState.EMoveResult result = boardState.PlayUnsafeMove(move);
+            // Manage pawn promotion
+            if (result == BoardState.EMoveResult.Promotion)
+            {
+                Debug.Log($"[ChessManager] Promotion d'un pion en reine ({teamTurn}) !");
+                AddQueenAtPos(move.to);
+            }
 
-            // Si c'est un coup local, on l'envoie au réseau
+            // If local move, send it to the network
             if (!isNetworkMove)
             {
                 string msg = $"{move.from}-{move.to}\n";
 
                 if (ServerManager.Instance != null && ServerManager.Instance.Server != null && ServerManager.Instance.Server.HasClient)
                 {
-                    // Envoie depuis le serveur vers le client
+                    // Server to client
                     ServerManager.Instance.Server.DispatchMessage(msg);
                 }
                 else
                 {
-                    // Envoie depuis le client vers le serveur
+                    // Client to server
                     Client m_client = FindFirstObjectByType<Client>();
                     if (m_client != null && m_client.IsConnected)
                     {
@@ -217,7 +223,7 @@ public partial class ChessGameManager : MonoBehaviour
                 OnScoreUpdated?.Invoke(scores[0], scores[1]);
                 Debug.Log($"[ChessManager] Le joueur {teamTurn} a gagné la partie !");
 
-                //Reset le plateau
+                //Reset board
                 PrepareGame(false);
                 UpdatePieces();
 
@@ -225,7 +231,7 @@ public partial class ChessGameManager : MonoBehaviour
                 return;
             }
 
-            // On ne change le tour que si c’est un coup local
+            // Change turn if only local move
             if (!isNetworkMove)
             {
                 teamTurn = (teamTurn == EChessTeam.White ? EChessTeam.Black : EChessTeam.White);
@@ -233,7 +239,7 @@ public partial class ChessGameManager : MonoBehaviour
             }
             else
             {
-                // Si c'est un coup reçu du réseau, on garde le tour local inchangé
+                // If it is a move received by the network, keep the turn
                 teamTurn = (teamTurn == EChessTeam.White ? EChessTeam.Black : EChessTeam.White);
                 OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
             }
@@ -252,7 +258,7 @@ public partial class ChessGameManager : MonoBehaviour
 
     public bool IsPlayerTurn()
     {
-        //Si aucun rôle local assigné, ne pas pouvoir jouer
+        //If no teams are chose, can't play
         if (localPlayerTeam == EChessTeam.None)
             return false;
         return teamTurn == localPlayerTeam;
@@ -296,17 +302,16 @@ public partial class ChessGameManager : MonoBehaviour
         localPlayerTeam = assignedLocalTeam;
         Debug.Log($"[ChessGameManager] StartNetworkGame -> localPlayerTeam = {localPlayerTeam}");
 
-        // Réinitialise le plateau (sans reset des scores)
+        // Reset board but not the scores
         PrepareGame(false);
 
-        // Le joueur blanc commence toujours
+        // White team always start
         teamTurn = EChessTeam.White;
 
-        // Met à jour l'affichage
+        // Update render
         UpdatePieces();
         OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
 
-        // Log utile pour debug
         Debug.Log($"[ChessGameManager] teamTurn = {teamTurn}, localPlayerTeam = {localPlayerTeam}, IsPlayerTurn = {IsPlayerTurn()}");
     }
 
@@ -478,7 +483,7 @@ public partial class ChessGameManager : MonoBehaviour
         if (!CanLocalPlayerPlay())
             return;
 
-        //Bloque les inputs quand ce n'est pas son tour
+        //Block inputs when it's not your turn
         if(!IsPlayerTurn())
             return;
 
@@ -527,7 +532,6 @@ public partial class ChessGameManager : MonoBehaviour
         if (!Enum.TryParse(teamStr, out EChessTeam receivedTeam))
             return;
 
-        // Déterminer la couleur locale selon le côté
         EChessTeam localTeam = receivedTeam;
         if (isServer)
         {
