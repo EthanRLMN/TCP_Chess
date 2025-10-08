@@ -48,9 +48,9 @@ public class Server
     {
         HandleUsersConnection();
 
-        string message = ReceiveMessage();
-        if (message != string.Empty)
-            Debug.Log("[Server] Received : " + message);
+        Message message = ReceiveMessage(m_clientSocket);
+        if (message != null)
+            HandleMessage(message);
     }
 
 
@@ -132,7 +132,7 @@ public class Server
     }
 
 
-    public void DispatchMessage(string message)
+    public void DispatchMessage(MessageBuilder.MessageType type, string content)
     {
         if (!HasClient)
         {
@@ -140,11 +140,13 @@ public class Server
             return;
         }
 
-        byte[] msg = Encoding.UTF8.GetBytes(message);
+        byte[] contentBytes = Encoding.UTF8.GetBytes(content);
+        byte[] message = MessageBuilder.BuildMessage(type, contentBytes);
+        
         try
         {
-            m_clientSocket.Send(msg);
-            Debug.Log(message);
+            m_clientSocket.Send(message);
+            Debug.Log($"[Server] Sent {type}: {content}");
         }
         catch (SocketException se)
         {
@@ -154,35 +156,66 @@ public class Server
     }
 
 
-    private string ReceiveMessage()
+    private Message ReceiveMessage(Socket socket)
     {
-        if (!HasClient)
-            return string.Empty;
+        if (socket == null || !socket.Connected)
+            return null;
 
-        try
-        {
-            if (m_clientSocket.Poll(0, SelectMode.SelectRead))
-            {
-                if (m_clientSocket.Available == 0)
-                {
-                    Debug.Log("[Server] Client socket closed.");
-                    m_clientSocket.Close();
-                    m_clientSocket = null;
-                    return string.Empty;
-                }
+        // Make sure the header is available
+        if (socket.Available < 8)
+            return null;
 
-                byte[] buffer = new byte[1024];
-                int received = m_clientSocket.Receive(buffer);
-                return Encoding.UTF8.GetString(buffer, 0, received);
-            }
-        }
-        catch (SocketException se)
+        // Try to read the header and see if it matches
+        byte[] header = new byte[8];
+        int headerRead = socket.Receive(header, 0, 8, SocketFlags.None);
+        if (headerRead < 8)
         {
-            if (se.SocketErrorCode != SocketError.WouldBlock)
-                Debug.LogError("[Server] Error receiving message : " + se.Message);
+            Debug.LogWarning("[Receive] Incomplete header.");
+            return null;
         }
 
-        return string.Empty;
+        int contentLength = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(header, 0));
+        MessageBuilder.MessageType type = (MessageBuilder.MessageType)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(header, 4));
+
+        // Try to read the message content
+        byte[] content = new byte[contentLength];
+        int totalRead = 0;
+        while (totalRead < contentLength)
+        {
+            int read = socket.Receive(content, totalRead, contentLength - totalRead, SocketFlags.None);
+            if (read <= 0)
+                return null;
+            
+            totalRead += read;
+        }
+        return new Message(type, content);
+    }
+    
+    
+    private void HandleMessage(Message msg)
+    {
+        string content = Encoding.UTF8.GetString(msg.Content);
+
+        switch (msg.Type)
+        {
+            case MessageBuilder.MessageType.Chat:
+                Debug.Log("[Server] Chat : " + content);
+                break;
+
+            case MessageBuilder.MessageType.GameState:
+                Debug.Log("[Server] GameState : " + content);
+                // TODO: Parse game state and update board
+                break;
+
+            case MessageBuilder.MessageType.PlayerAction:
+                Debug.Log("[Server] PlayerAction : " + content);
+                // TODO: Apply move then send new GameState to client
+                break;
+
+            default:
+                Debug.LogWarning("[Server] Unknown message type : " + msg.Type);
+                break;
+        }
     }
     
 #endregion
