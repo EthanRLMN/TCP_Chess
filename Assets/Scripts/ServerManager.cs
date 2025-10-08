@@ -8,7 +8,7 @@ public class ServerManager : MonoBehaviour
     private static ServerManager m_instance = null;
     private Server m_server;
     public Server Server => m_server;
-    
+    public bool isClientConnected => m_server != null && m_server.HasClient;
     
     #endregion
     

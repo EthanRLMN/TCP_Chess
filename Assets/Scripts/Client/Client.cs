@@ -53,36 +53,47 @@ public class Client : MonoBehaviour
             m_isConnecting = false;
             Debug.Log("[Client] Connection completed!");
         }
-        
+
         if (!IsConnected)
             return;
-        
+
         string messageChunk = ReceiveChatMessage();
         if (!string.IsNullOrEmpty(messageChunk))
         {
-            //Stock in buffer
             m_receiveBuffer += messageChunk;
 
             int newLineIndex;
-            while((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
+            while ((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
             {
                 string fullMessage = m_receiveBuffer.Substring(0, newLineIndex).Trim();
                 m_receiveBuffer = m_receiveBuffer.Substring(newLineIndex + 1);
 
-                if(!string.IsNullOrEmpty(fullMessage))
+                if (string.IsNullOrEmpty(fullMessage))
+                    continue;
+
+                Debug.Log("[Client] Received : " + fullMessage);
+
+                if (fullMessage.StartsWith("TEAM:"))
                 {
-                    Debug.Log("[Client] Received : " + fullMessage);
-                    ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
+                    string teamStr = fullMessage.Substring(5);
+                    if (Enum.TryParse(teamStr, out ChessGameManager.EChessTeam assignedTeam))
+                    {
+                        ChessGameManager.Instance.StartNetworkGame(assignedTeam);
+                        Debug.Log($"[Client] Assigned team: {assignedTeam}");
+                    }
+                    continue;
                 }
+
+                ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
             }
         }
     }
 
     #endregion
-    
-    
+
+
     #region Custom Methods
-    
+
     private void SetupClient()
     {
         if (m_clientSocket != null)

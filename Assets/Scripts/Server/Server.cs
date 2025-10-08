@@ -55,21 +55,36 @@ public class Server
             m_receiveBuffer += messageChunk;
             int newLineIndex;
 
-            while((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
+            while ((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
             {
                 string fullMessage = m_receiveBuffer.Substring(0, newLineIndex).Trim();
                 m_receiveBuffer = m_receiveBuffer.Substring(newLineIndex + 1);
 
-                if(!string.IsNullOrEmpty(fullMessage))
+                if (string.IsNullOrEmpty(fullMessage))
+                    continue;
+
+                Debug.Log("[Server] Received : " + fullMessage);
+
+                // Gestion des équipes
+                if (fullMessage.StartsWith("TEAM:"))
                 {
-                    Debug.Log("[Server] Received : " + fullMessage);
+                    string clientTeam = fullMessage.Substring(5);
+                    string serverTeam = clientTeam == "White" ? "Black" : "White";
 
-                    // Applique le coup localement
-                    ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
+                    Debug.Log($"[Server] Client chose {clientTeam}, sending back TEAM:{serverTeam}");
+                    DispatchMessage($"TEAM:{serverTeam}");
 
-                    // Renvoie le coup au client pour synchro
-                    DispatchMessage(fullMessage);
+                    // Le serveur démarre aussi sa partie avec sa couleur opposée
+                    ChessGameManager.EChessTeam localTeam =
+                        (ChessGameManager.EChessTeam)Enum.Parse(typeof(ChessGameManager.EChessTeam), serverTeam);
+                    ChessGameManager.Instance.StartNetworkGame(localTeam);
+
+                    continue;
                 }
+
+                // Gestion du coup
+                ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
+                DispatchMessage(fullMessage); // renvoi au client
             }
         }
     }

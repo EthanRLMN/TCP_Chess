@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
+using System.Collections;
 
 /*
  * This singleton manages the whole chess game
@@ -127,6 +128,8 @@ public partial class ChessGameManager : MonoBehaviour
 
     EChessTeam teamTurn;
 
+    EChessTeam localPlayerTeam = EChessTeam.None;
+
     List<uint> scores;
 
     public delegate void PlayerTurnEvent(bool isWhiteMove);
@@ -249,13 +252,10 @@ public partial class ChessGameManager : MonoBehaviour
 
     public bool IsPlayerTurn()
     {
-        bool isHost = ServerManager.Instance != null && ServerManager.Instance.Server != null && ServerManager.Instance.Server.HasClient;
-        bool isClient = !isHost;
-        if (isHost && teamTurn == EChessTeam.White)
-            return true;
-        if (isClient && teamTurn == EChessTeam.Black)
-            return true;
-        return false;
+        //Si aucun rôle local assigné, ne pas pouvoir jouer
+        if (localPlayerTeam == EChessTeam.None)
+            return false;
+        return teamTurn == localPlayerTeam;
     }
 
     public BoardSquare GetSquare(int pos)
@@ -291,6 +291,25 @@ public partial class ChessGameManager : MonoBehaviour
         return xPos + zPos * BOARD_SIZE;
     }
 
+    public void StartNetworkGame(EChessTeam assignedLocalTeam)
+    {
+        localPlayerTeam = assignedLocalTeam;
+        Debug.Log($"[ChessGameManager] StartNetworkGame -> localPlayerTeam = {localPlayerTeam}");
+
+        // Réinitialise le plateau (sans reset des scores)
+        PrepareGame(false);
+
+        // Le joueur blanc commence toujours
+        teamTurn = EChessTeam.White;
+
+        // Met à jour l'affichage
+        UpdatePieces();
+        OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
+
+        // Log utile pour debug
+        Debug.Log($"[ChessGameManager] teamTurn = {teamTurn}, localPlayerTeam = {localPlayerTeam}, IsPlayerTurn = {IsPlayerTurn()}");
+    }
+
     #endregion
 
     #region MonoBehaviour
@@ -301,6 +320,10 @@ public partial class ChessGameManager : MonoBehaviour
 
     void Start()
     {
+        if (ServerManager.Instance?.Server == null && (FindFirstObjectByType<Client>()?.IsConnected ?? false) == false)
+            return;
+        StartCoroutine(WaitForNetworkReady());
+
         pieceLayerMask = 1 << LayerMask.NameToLayer("Piece");
         boardLayerMask = 1 << LayerMask.NameToLayer("Board");
 
@@ -333,6 +356,22 @@ public partial class ChessGameManager : MonoBehaviour
         //    UpdateAITurn();
         else
             UpdatePlayerTurn();
+    }
+
+    private IEnumerator WaitForNetworkReady()
+    {
+        Debug.Log("[ChessManager] Waiting for server/client to be ready...");
+        while (true)
+        {
+            bool hasServer = ServerManager.Instance != null && ServerManager.Instance.Server != null;
+            bool hasClient = hasServer && ServerManager.Instance.Server.HasClient;
+            if (hasClient)
+                break;
+
+            yield return new WaitForSeconds(0.5f);
+        }
+        Debug.Log("[ChessManager] Both players are ready. Showing color selection menu ...");
+        GUIManager.Instance.ShowColorSelection();
     }
     #endregion
 
@@ -479,17 +518,31 @@ public partial class ChessGameManager : MonoBehaviour
         }
     }
 
+    public void HandleTeamMessage(string teamMessage, bool isServer)
+    {
+        if (!teamMessage.StartsWith("TEAM:"))
+            return;
+
+        string teamStr = teamMessage.Substring(5);
+        if (!Enum.TryParse(teamStr, out EChessTeam receivedTeam))
+            return;
+
+        // Déterminer la couleur locale selon le côté
+        EChessTeam localTeam = receivedTeam;
+        if (isServer)
+        {
+            localTeam = (receivedTeam == EChessTeam.White)
+                ? EChessTeam.Black
+                : EChessTeam.White;
+        }
+
+        Debug.Log($"[ChessGameManager] {(isServer ? "Server" : "Client")} local team set to {localTeam}");
+        StartNetworkGame(localTeam);
+    }
+
     public bool CanLocalPlayerPlay()
     {
-        // Si on est hôte on joue les blancs
-        if (ServerManager.Instance != null && ServerManager.Instance.Server != null && ServerManager.Instance.Server.HasClient)
-            return teamTurn == EChessTeam.White;
-        // Si on est client on joue les noirs
-        Client c = FindFirstObjectByType<Client>();
-        if (c != null && c.IsConnected)
-            return teamTurn == EChessTeam.Black;
-
-        return true;
+        return localPlayerTeam != EChessTeam.None && teamTurn == localPlayerTeam;
     }
 
     void ComputeDrag()

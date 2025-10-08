@@ -7,6 +7,11 @@ using UnityEngine.UI;
 
 public class GUIManager : MonoBehaviour
 {
+    [SerializeField] private GameObject m_colorSelectionPanel;
+    [SerializeField] private Button m_whiteButton;
+    [SerializeField] private Button m_blackButton;
+
+    private ChessGameManager.EChessTeam m_localTeam;
 
     #region Singleton
     static GUIManager instance = null;
@@ -41,7 +46,54 @@ public class GUIManager : MonoBehaviour
         ChessGameManager.Instance.OnPlayerTurn += DisplayTurn;
         ChessGameManager.Instance.OnScoreUpdated += UpdateScore;
     }
-	
+
+    public void ShowColorSelection()
+    {
+        m_colorSelectionPanel.SetActive(true);
+
+        m_whiteButton.onClick.RemoveAllListeners();
+        m_blackButton.onClick.RemoveAllListeners();
+
+        m_whiteButton.onClick.AddListener(() => SelectColor(ChessGameManager.EChessTeam.White));
+        m_blackButton.onClick.AddListener(() => SelectColor(ChessGameManager.EChessTeam.Black));
+    }
+
+    private void SelectColor(ChessGameManager.EChessTeam team)
+    {
+        m_localTeam = team;
+        m_colorSelectionPanel.SetActive(false);
+
+        Debug.Log($"[GUIManager] Local player chose {team}");
+
+        // Si on est serveur : on envoie la couleur opposée au client ET on démarre localement
+        if (ServerManager.Instance?.Server != null && ServerManager.Instance.Server.HasClient)
+        {
+            var clientTeam = (team == ChessGameManager.EChessTeam.White)
+                ? ChessGameManager.EChessTeam.Black
+                : ChessGameManager.EChessTeam.White;
+
+            Debug.Log($"[GUIManager] Server sending TEAM:{clientTeam}");
+            ServerManager.Instance.Server.DispatchMessage($"TEAM:{clientTeam}");
+
+            // Le serveur démarre sa partie avec sa couleur choisie
+            ChessGameManager.Instance.StartNetworkGame(team);
+        }
+        else
+        {
+            // Côté client : envoie son choix au serveur, mais n'appelle PAS StartNetworkGame()
+            var client = FindFirstObjectByType<Client>();
+            if (client != null && client.IsConnected)
+            {
+                Debug.Log($"[GUIManager] Client sending TEAM:{team}");
+                client.SendChatMessage($"TEAM:{team}");
+            }
+            else
+            {
+                Debug.LogWarning("[GUIManager] Client not connected, cannot send TEAM message.");
+            }
+        }
+    }
+
     void DisplayTurn(bool isWhiteMove)
     {
         whiteToMoveTr.gameObject.SetActive(isWhiteMove);
