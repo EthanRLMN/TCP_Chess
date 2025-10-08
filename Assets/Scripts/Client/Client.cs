@@ -15,6 +15,7 @@ public class Client : MonoBehaviour
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;
     private bool m_isConnecting = false, m_isHost = false, m_isConnected = false;
+    private string m_receiveBuffer = "";
 
     public bool IsConnected
     {
@@ -56,13 +57,25 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
         
-        string message = ReceiveChatMessage();
-        if (!string.IsNullOrEmpty(message))
+        string messageChunk = ReceiveChatMessage();
+        if (!string.IsNullOrEmpty(messageChunk))
         {
-            Debug.Log("[Client] Received : " + message);
-            ChessGameManager.Instance.ApplyNetworkMove(message);
-        }
+            //Stock in buffer
+            m_receiveBuffer += messageChunk;
 
+            int newLineIndex;
+            while((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
+            {
+                string fullMessage = m_receiveBuffer.Substring(0, newLineIndex).Trim();
+                m_receiveBuffer = m_receiveBuffer.Substring(newLineIndex + 1);
+
+                if(!string.IsNullOrEmpty(fullMessage))
+                {
+                    Debug.Log("[Client] Received : " + fullMessage);
+                    ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
+                }
+            }
+        }
     }
 
     #endregion
@@ -157,7 +170,7 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
 
-        byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+        byte[] messageBytes = Encoding.UTF8.GetBytes(message + "\n");
 
         try
         {

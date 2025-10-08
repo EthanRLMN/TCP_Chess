@@ -12,6 +12,7 @@ public class Server
     private Socket m_socket, m_clientSocket;
     private IPHostEntry m_host;
     private IPEndPoint m_localEP;
+    private string m_receiveBuffer = "";
 
     #endregion
 
@@ -48,11 +49,28 @@ public class Server
     {
         HandleUsersConnection();
 
-        string message = ReceiveMessage();
-        if (message != string.Empty)
+        string messageChunk = ReceiveMessage();
+        if (messageChunk != string.Empty)
         {
-            Debug.Log("[Server] Received : " + message);
-            ChessGameManager.Instance.ApplyNetworkMove(message);
+            m_receiveBuffer += messageChunk;
+            int newLineIndex;
+
+            while((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
+            {
+                string fullMessage = m_receiveBuffer.Substring(0, newLineIndex).Trim();
+                m_receiveBuffer = m_receiveBuffer.Substring(newLineIndex + 1);
+
+                if(!string.IsNullOrEmpty(fullMessage))
+                {
+                    Debug.Log("[Server] Received : " + fullMessage);
+
+                    // Applique le coup localement
+                    ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
+
+                    // Renvoie le coup au client pour synchro
+                    DispatchMessage(fullMessage);
+                }
+            }
         }
     }
 
@@ -143,7 +161,7 @@ public class Server
             return;
         }
 
-        byte[] msg = Encoding.UTF8.GetBytes(message);
+        byte[] msg = Encoding.UTF8.GetBytes(message + "\n");
         try
         {
             m_clientSocket.Send(msg);
