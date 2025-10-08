@@ -207,6 +207,21 @@ public partial class ChessGameManager : MonoBehaviour
 
             UpdatePieces();
 
+            EChessTeam enemyTeam = (teamTurn == EChessTeam.White ? EChessTeam.Black : EChessTeam.White);
+            if(boardState.DoesTeamLose(enemyTeam))
+            {
+                scores[(int)teamTurn]++;
+                OnScoreUpdated?.Invoke(scores[0], scores[1]);
+                Debug.Log($"[ChessManager] Le joueur {teamTurn} a gagné la partie !");
+
+                //Reset le plateau
+                PrepareGame(false);
+                UpdatePieces();
+
+                OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
+                return;
+            }
+
             // On ne change le tour que si c’est un coup local
             if (!isNetworkMove)
             {
