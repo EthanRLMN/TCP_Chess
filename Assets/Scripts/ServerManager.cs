@@ -47,7 +47,7 @@ public class ServerManager : MonoBehaviour
         
         if (Input.GetKeyDown(KeyCode.X))
         {
-            m_server.DispatchMessage("[Server] Sending message to player!");
+            m_server.DispatchMessage(MessageBuilder.MessageType.Chat, "[Server] Sending message to player!");
         }
     }
 
