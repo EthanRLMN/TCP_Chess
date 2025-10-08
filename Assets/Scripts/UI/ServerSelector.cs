@@ -10,7 +10,7 @@ public class ServerSelector : MonoBehaviour
     [SerializeField] private TMP_InputField m_ipInputField;
     [SerializeField] private Button m_connectDisconnectButton;
     [SerializeField] private Button m_hostButton;
-    
+
     private bool m_isHost = false, m_isConnected = false, m_isOpen = false;
 
     private string m_ipAddress = "127.0.0.1";
@@ -18,7 +18,7 @@ public class ServerSelector : MonoBehaviour
 
     private Client m_client;
 
-    
+
     private void Awake()
     {
         m_client = FindFirstObjectByType<Client>();

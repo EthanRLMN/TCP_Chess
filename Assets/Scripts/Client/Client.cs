@@ -1,17 +1,20 @@
 using System;
 using System.Collections;
-using UnityEngine;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+
+using UnityEngine;
 
 
 public class Client : MonoBehaviour
 {
     #region Variables
 
-    [SerializeField] private string m_ipString = "10.2.107.154";
-    [SerializeField] private int m_port = 10147;
+    [SerializeField] private GameObject m_chatBoxObj;
+    private string m_ipString = "10.2.107.154";
+    private int m_port = 10147;
+    
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;
     private bool m_isConnecting = false, m_isHost = false, m_isConnected = false;
