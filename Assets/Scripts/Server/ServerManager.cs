@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using UnityEngine;
 
 
@@ -5,24 +6,11 @@ public class ServerManager : MonoBehaviour
 {
     #region Variables
     
-    private static ServerManager m_instance = null;
+    public static ServerManager Instance { get; private set; }
+    
     private Server m_server;
-    public Server Server => m_server;
     
-    
-    #endregion
-    
-    
-    #region Instance
-    public static ServerManager Instance
-    {
-        get
-        {
-            if (!m_instance)
-                m_instance = FindFirstObjectByType<ServerManager>();
-            return m_instance;
-        }
-    }
+    public bool IsRunning => m_server != null;
     
     #endregion
     
@@ -30,10 +18,13 @@ public class ServerManager : MonoBehaviour
     #region Unity Functions
     private void Awake()
     {
-        if (!m_instance)
-            m_instance = this;
-        else
+        if (Instance != null && Instance != this)
+        {
             Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
     }
 
 
@@ -42,23 +33,14 @@ public class ServerManager : MonoBehaviour
         if (m_server == null)
             return;
         
-        m_server.Update();
-        
-        
-        if (Input.GetKeyDown(KeyCode.X))
-        {
-            m_server.DispatchMessage(MessageBuilder.MessageType.Chat, "[Server] Sending message to player!");
-        }
+        if (IsRunning) 
+            m_server.Update();
     }
 
 
     private void OnApplicationQuit()
     {
-        if (m_server == null)
-            return;
-        
-        m_server.Shutdown();
-        m_server = null;
+        StopServer();
     }
 
     #endregion
@@ -72,6 +54,18 @@ public class ServerManager : MonoBehaviour
             StopServer();
         
         InitServer(ip, port, listeners);
+    }
+    
+    
+    public void Broadcast(MessageBuilder.MessageType type, string content, Socket except = null)
+    {
+        if (!IsRunning)
+        {
+            Debug.LogWarning("[ServerManager] Cannot broadcast : server not running.");
+            return;
+        }
+
+        m_server.BroadcastMessage(type, content, except);
     }
 
 

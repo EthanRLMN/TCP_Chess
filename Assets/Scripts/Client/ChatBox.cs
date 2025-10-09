@@ -14,6 +14,8 @@ public class ChatBox : MonoBehaviour
     
     public bool IsVisible = false;
     
+    private Client m_client;
+    
     
     [SerializeField] private GameObject ChatPanel;
 
@@ -22,15 +24,16 @@ public class ChatBox : MonoBehaviour
     
     #region Unity Functions
 
-    private void OnEnable()
+    private void Awake()
     {
-        ChatInputField.onSubmit.AddListener(AddToChatOutput);
+        m_client = FindFirstObjectByType<Client>();
+        ChatInputField.onSubmit.AddListener(OnSubmitMessage);
     }
 
 
-    private void OnDisable()
+    private void OnDestroy()
     {
-        ChatInputField.onSubmit.RemoveListener(AddToChatOutput);
+        ChatInputField.onSubmit.RemoveListener(OnSubmitMessage);
     }
 
 
@@ -44,29 +47,46 @@ public class ChatBox : MonoBehaviour
 
     #region Custom Functions
     
-    private void AddToChatOutput(string message)
+    private void OnSubmitMessage(string message)
     {
-        // Check if message is empty
         if (string.IsNullOrWhiteSpace(message))
             return;
+
+        Client client = FindFirstObjectByType<Client>();
+        if (client == null)
+            return;
         
-        ChatInputField.text = string.Empty;
+        client.SendChatMessage(message);
+        AddToChatOutput($"{client.Nickname}|{message}");
+    }
+    
+    
+    public void AddToChatOutput(string rawMessage)
+    {
+        if (string.IsNullOrWhiteSpace(rawMessage)) return;
 
-        DateTime timeNow = DateTime.Now;
+        string pseudo = "Unknown";
+        string message = rawMessage;
 
-        string formattedInput = "[<#FFFF80>" + timeNow.Hour.ToString("d2") + ":" + timeNow.Minute.ToString("d2") + ":" + timeNow.Second.ToString("d2") + "</color>] " + message;
-
-        if (ChatDisplayOutput != null)
+        if (rawMessage.Contains("|"))
         {
-            if (ChatDisplayOutput.text == string.Empty)
-                ChatDisplayOutput.text = formattedInput;
-            else
-                ChatDisplayOutput.text += "\n" + formattedInput;
+            string[] parts = rawMessage.Split(new char[] { '|' }, 2);
+            pseudo = parts[0];
+            message = parts[1];
         }
-        
+
+        string formattedMessage = $"<color=#00FF00>{pseudo}</color> : {message}";
+
+        if (ChatDisplayOutput.text == string.Empty)
+            ChatDisplayOutput.text = formattedMessage;
+        else
+            ChatDisplayOutput.text += "\n" + formattedMessage;
+
+        ChatInputField.text = string.Empty;
         ChatInputField.ActivateInputField();
-        
-        ChatScrollbar.value = 0;
+
+        if (ChatScrollbar != null)
+            ChatScrollbar.value = 0;
     }
 
 

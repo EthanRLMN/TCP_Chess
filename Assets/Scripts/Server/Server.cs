@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -9,7 +10,8 @@ public class Server
 {
     #region Variables
 
-    private Socket m_socket, m_clientSocket;
+    private Socket m_socket;
+    private List<Socket> m_clients = new();
     private IPHostEntry m_host;
     private IPEndPoint m_localEP;
 
@@ -21,7 +23,10 @@ public class Server
     public string IpAddress { get; set; } = "127.0.0.1"; // Use local IP as default
     public int Port { get; set; } = 10147; // Use 10147 as the default port
     public int Listeners { get; set; } = 2;
-    public bool HasClient => m_clientSocket != null && m_clientSocket.Connected;
+    public int ClientCount => m_clients.Count;
+    public IEnumerable<Socket> Clients => m_clients;
+
+    public bool HasClient => m_clients != null && m_clients[0].Connected;
 
     #endregion
 
@@ -48,9 +53,19 @@ public class Server
     {
         HandleUsersConnection();
 
-        Message message = ReceiveMessage(m_clientSocket);
-        if (message != null)
-            HandleMessage(message);
+        for (int i = m_clients.Count - 1; i >= 0; --i)
+        {
+            Socket client = m_clients[i];
+            if (client == null || !client.Connected)
+            {
+                m_clients.RemoveAt(i);
+                continue;
+            }
+
+            Message msg = ReceiveMessage(client);
+            if (msg != null)
+                HandleMessage(msg, client);
+        }
     }
 
 
@@ -61,19 +76,19 @@ public class Server
 
         try
         {
-            // Ensure there's a connection attempt before accepting anything
-            if (!m_socket.Poll(0, SelectMode.SelectRead))
-                return;
+            while (m_socket.Poll(0, SelectMode.SelectRead))
+            {
+                Socket newClient = m_socket.Accept();
+                newClient.Blocking = false;
+                m_clients.Add(newClient);
 
-            m_clientSocket = m_socket.Accept();
-            m_clientSocket.Blocking = false;
-
-            Debug.Log("[Server] User connection allowed!");
+                Debug.Log($"[Server] New client connected ({m_clients.Count} total)");
+            }
         }
         catch (SocketException se)
         {
             if (se.SocketErrorCode != SocketError.WouldBlock)
-                Debug.Log("[Server] Connection authorization error : " + se.Message);
+                Debug.Log("[Server] Connection error : " + se.Message);
         }
     }
 
@@ -82,76 +97,50 @@ public class Server
     {
         Debug.Log("[Server] Shutting down...");
 
+        foreach (Socket client in m_clients)
+        {
+            try
+            {
+                if (client.Connected)
+                    client.Shutdown(SocketShutdown.Both);
+            }
+            catch { }
+
+            try
+            {
+                client.Close();
+            }
+            catch { }
+        }
+
+        m_clients.Clear();
+
         try
         {
-            if (m_clientSocket != null)
-            {
-                try
-                {
-                    if (m_clientSocket.Connected)
-                    {
-                        m_clientSocket.Shutdown(SocketShutdown.Both);
-                        Debug.Log("[Server] Client socket shutdown done!");
-                    }
-                }
-                catch (SocketException se)
-                {
-                    Debug.LogWarning("[Server] Client shutdown skipped (already closed) : " + se.Message);
-                }
-                finally
-                {
-                    m_clientSocket.Close();
-                    m_clientSocket = null;
-                    Debug.Log("[Server] Client socket closed!");
-                }
-            }
-            
-            if (m_socket != null)
-            {
-                try
-                {
-                    m_socket.Close();
-                    Debug.Log("[Server] Listening socket closed!");
-                }
-                catch (SocketException se)
-                {
-                    Debug.LogWarning("[Server] Listening socket close error : " + se.Message);
-                }
-                finally
-                {
-                    m_socket = null;
-                }
-            }
-
-            Debug.Log("[Server] Shutdown done!");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError("[Server] Unexpected error during shutdown: " + e);
-        }
-    }
-
-
-    public void DispatchMessage(MessageBuilder.MessageType type, string content)
-    {
-        if (!HasClient)
-        {
-            Debug.Log("[Server] There's no client to dispatch message to!");
-            return;
-        }
-
-        byte[] contentBytes = Encoding.UTF8.GetBytes(content);
-        byte[] message = MessageBuilder.BuildMessage(type, contentBytes);
-        
-        try
-        {
-            m_clientSocket.Send(message);
-            Debug.Log($"[Server] Sent {type}: {content}");
+            m_socket?.Close();
         }
         catch (SocketException se)
         {
-            if (se.SocketErrorCode != SocketError.WouldBlock)
-                Debug.LogError("[Server] Error sending message : " + se.Message);
+            Debug.LogWarning("[Server] Error closing listening socket : " + se.Message);
+        }
+        finally
+        {
+            m_socket = null;
+        }
+
+        Debug.Log("[Server] Shutdown complete!");
+    }
+    
+    
+    private static bool IsConnected(Socket socket)
+    {
+        try
+        {
+            return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -192,14 +181,46 @@ public class Server
     }
     
     
-    private void HandleMessage(Message msg)
+    public void BroadcastMessage(MessageBuilder.MessageType type, string content, Socket except = null)
+    {
+        if (m_clients.Count == 0)
+        {
+            Debug.Log("[Server] No clients to broadcast to.");
+            return;
+        }
+
+        byte[] msg = MessageBuilder.BuildMessage(type, Encoding.UTF8.GetBytes(content));
+
+        foreach (Socket client in m_clients)
+        {
+            if (client == null || client == except)
+                continue;
+
+            try
+            {
+                client.Send(msg);
+            }
+            catch (SocketException se)
+            {
+                if (se.SocketErrorCode != SocketError.WouldBlock)
+                    Debug.LogWarning("[Server] Broadcast send error : " + se.Message);
+            }
+        }
+        Debug.Log($"[Server] Broadcasted {type} : {content}");
+    }
+    
+    
+    private void HandleMessage(Message msg, Socket sender)
     {
         string content = Encoding.UTF8.GetString(msg.Content);
+        Debug.Log($"[Server] {msg.Type} from {sender.RemoteEndPoint} : {content}");
+
 
         switch (msg.Type)
         {
             case MessageBuilder.MessageType.Chat:
-                Debug.Log("[Server] Chat : " + content);
+                BroadcastMessage(MessageBuilder.MessageType.Chat, content, sender);
+                Debug.Log("[Server] Chat relayed : " + content);
                 break;
 
             case MessageBuilder.MessageType.GameState:

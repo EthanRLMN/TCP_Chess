@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -12,30 +11,18 @@ public class Client : MonoBehaviour
     #region Variables
 
     [SerializeField] private GameObject m_chatBoxObj;
+    
     private string m_ipString = "10.2.107.154";
     private int m_port = 10147;
     
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;
     private bool m_isConnecting = false, m_isHost = false, m_isConnected = false;
-
-    public bool IsConnected
-    {
-        get
-        {
-            if (m_clientSocket == null)
-                return false;
-
-            try
-            {
-                return !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-    }
+    
+    private ChatBox m_chatBox;
+    
+    public string Nickname { get; set; }
+    public bool IsConnected => m_clientSocket != null && !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
 
     #endregion
     
@@ -44,7 +31,10 @@ public class Client : MonoBehaviour
 
     private void Awake()
     {
+        Nickname = "Player#" + UnityEngine.Random.Range(0001, 9999).ToString("D4");
         SetupClient();
+        
+        m_chatBox = FindFirstObjectByType<ChatBox>();
     }
 
 
@@ -168,6 +158,27 @@ public class Client : MonoBehaviour
                 Debug.LogError("[Client] Error sending message : " + se.Message);
         }
     }
+    
+    
+    public void SendChatMessage(string message)
+    {
+        if (!IsConnected)
+            return;
+
+        string formattedMessage = $"{Nickname}|{message}";
+        byte[] msg = MessageBuilder.BuildMessage(MessageBuilder.MessageType.Chat, Encoding.UTF8.GetBytes(formattedMessage));
+
+        try
+        {
+            m_clientSocket.Send(msg);
+            Debug.Log("[Client] Chat message sent: " + formattedMessage);
+        }
+        catch (SocketException se)
+        {
+            if (se.SocketErrorCode != SocketError.WouldBlock)
+                Debug.LogError("[Client] Error sending chat: " + se.Message);
+        }
+    }
 
 
     private Message ReceiveMessage(Socket socket)
@@ -213,6 +224,7 @@ public class Client : MonoBehaviour
         switch (msg.Type)
         {
             case MessageBuilder.MessageType.Chat:
+                m_chatBox?.AddToChatOutput(content);
                 Debug.Log("[Client] Chat : " + content);
                 break;
 

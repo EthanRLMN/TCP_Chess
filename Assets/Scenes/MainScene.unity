@@ -1482,6 +1482,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_menuRoot: {fileID: 1162495020}
+  m_nicknameInputField: {fileID: 1130037823}
   m_ipInputField: {fileID: 615468700}
   m_connectDisconnectButton: {fileID: 1063032968}
   m_hostButton: {fileID: 323905525}

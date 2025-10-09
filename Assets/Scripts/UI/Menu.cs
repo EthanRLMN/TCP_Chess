@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -7,6 +8,7 @@ public class Menu : MonoBehaviour
 {
     [Header("UI Elements")]
     [SerializeField] private GameObject m_menuRoot;
+    [SerializeField] private TMP_InputField m_nicknameInputField;
     [SerializeField] private TMP_InputField m_ipInputField;
     [SerializeField] private Button m_connectDisconnectButton;
     [SerializeField] private Button m_hostButton;
@@ -26,13 +28,25 @@ public class Menu : MonoBehaviour
         if (m_ipInputField)
             m_ipInputField.text = $"{m_ipAddress}:{m_port}";
         
-        if (m_connectDisconnectButton)
-            m_connectDisconnectButton.onClick.AddListener(OnConnectDisconnectClicked);
+        if (m_client != null && m_nicknameInputField != null)
+            m_nicknameInputField.text = m_client.Nickname;
+        
+        m_hostButton.onClick.AddListener(OnHostButtonClicked);
+        m_connectDisconnectButton.onClick.AddListener(OnConnectDisconnectClicked);
+        m_nicknameInputField.onValueChanged.AddListener(OnNicknameChange);
 
-        if (m_hostButton)
-            m_hostButton.onClick.AddListener(OnHostButtonClicked);
 
         RefreshUI();
+    }
+
+
+    private void OnDestroy()
+    {
+        if (m_nicknameInputField != null)
+            m_nicknameInputField.onValueChanged.RemoveListener(OnNicknameChange);
+        
+        m_hostButton.onClick.RemoveListener(OnHostButtonClicked);
+        m_connectDisconnectButton.onClick.RemoveListener(OnConnectDisconnectClicked);
     }
 
 
@@ -54,6 +68,21 @@ public class Menu : MonoBehaviour
             m_port = 10147; // Default port
     }
 
+    
+    private void OnNicknameChange(string newNickname)
+    {
+        if (m_isHost || m_isConnected)
+        {
+            if (m_client != null)
+                m_nicknameInputField.text = m_client.Nickname;
+            
+            return;
+        }
+
+        if (m_client != null && !string.IsNullOrWhiteSpace(newNickname))
+            m_client.Nickname = newNickname;
+    }
+    
 
     private void RefreshUI()
     {
@@ -68,6 +97,8 @@ public class Menu : MonoBehaviour
             
             m_connectDisconnectButton.interactable = !m_isHost;
         }
+        
+        RefreshNicknameField();
         
         if (!m_hostButton)
             return;
@@ -123,6 +154,8 @@ public class Menu : MonoBehaviour
             Debug.Log("[ServerSelector] Shutting down server...");
             
             ServerManager.Instance.StopServer();
+            m_client.Disconnect();
+            
             m_isHost = false;
             m_isConnected = false;
         }
@@ -131,11 +164,12 @@ public class Menu : MonoBehaviour
             Debug.Log("[ServerSelector] Starting host server...");
             
             ServerManager.Instance.StartServer(m_ipAddress, m_port);
+            m_client.ConnectAttempt(m_ipAddress, m_port);
             
             m_isHost = true;
             m_isConnected = true;
         }
-
+        
         RefreshUI();
     }
     
@@ -143,6 +177,13 @@ public class Menu : MonoBehaviour
     public void ToggleMenu()
     {
         SetMenuOpen(!m_isOpen);
+    }
+    
+    
+    private void RefreshNicknameField()
+    {
+        if (m_nicknameInputField != null)
+            m_nicknameInputField.interactable = !m_isConnected && !m_isHost;
     }
 
     
