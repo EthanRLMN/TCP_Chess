@@ -22,7 +22,7 @@ public class Server
 
     public string IpAddress { get; set; } = "127.0.0.1"; // Use local IP as default
     public int Port { get; set; } = 10147; // Use 10147 as the default port
-    public int Listeners { get; set; } = 2;
+    public int Listeners { get; set; } = 4;
     public int ClientCount => m_clients.Count;
     public IEnumerable<Socket> Clients => m_clients;
 
