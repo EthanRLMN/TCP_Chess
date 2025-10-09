@@ -52,7 +52,7 @@ public class ServerManager : MonoBehaviour
         
         if (Input.GetKeyDown(KeyCode.X))
         {
-            m_server.DispatchMessage("[Server] Sending message to player!");
+            m_server.BroadcastMessage("[Server] Sending message to player!");
         }
     }
 

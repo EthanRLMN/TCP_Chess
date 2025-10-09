@@ -54,7 +54,8 @@ public partial class ChessGameManager : MonoBehaviour
     {
         White = 0,
         Black,
-        None
+        None,
+        Spectator
     }
 
     public enum ETeamFlag : uint
@@ -201,7 +202,7 @@ public partial class ChessGameManager : MonoBehaviour
                 if (ServerManager.Instance != null && ServerManager.Instance.Server != null && ServerManager.Instance.Server.HasClient)
                 {
                     // Server to client
-                    ServerManager.Instance.Server.DispatchMessage(msg);
+                    ServerManager.Instance.Server.BroadcastMessage(msg);
                 }
                 else
                 {
@@ -313,6 +314,12 @@ public partial class ChessGameManager : MonoBehaviour
         OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
 
         Debug.Log($"[ChessGameManager] teamTurn = {teamTurn}, localPlayerTeam = {localPlayerTeam}, IsPlayerTurn = {IsPlayerTurn()}");
+
+        if(localPlayerTeam == EChessTeam.Spectator)
+        {
+            Debug.Log("[ChessGameManager] Spectator active");
+            return;
+        }
     }
 
     #endregion
@@ -532,6 +539,13 @@ public partial class ChessGameManager : MonoBehaviour
         if (!Enum.TryParse(teamStr, out EChessTeam receivedTeam))
             return;
 
+        if(receivedTeam == EChessTeam.Spectator)
+        {
+            Debug.Log("[ChessGameManager] Spectator joined.");
+            StartNetworkGame(EChessTeam.Spectator);
+            return;
+        }
+
         EChessTeam localTeam = receivedTeam;
         if (isServer)
         {
@@ -546,6 +560,10 @@ public partial class ChessGameManager : MonoBehaviour
 
     public bool CanLocalPlayerPlay()
     {
+        if(localPlayerTeam == EChessTeam.Spectator)
+        {
+            return false;
+        }
         return localPlayerTeam != EChessTeam.None && teamTurn == localPlayerTeam;
     }
 

@@ -84,6 +84,18 @@ public class Client : MonoBehaviour
                     continue;
                 }
 
+                if (fullMessage == "SHOW_COLOR_SELECTION")
+                {
+                    Debug.Log("[Client] Displaying color selection UI");
+                    GUIManager.Instance.ShowColorSelection();
+                    continue;
+                }
+                if (fullMessage == "START_GAME")
+                {
+                    Debug.Log("[Client] Game starting!");
+                    continue;
+                }
+
                 ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
             }
         }
