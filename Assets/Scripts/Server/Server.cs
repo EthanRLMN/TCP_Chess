@@ -4,12 +4,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
-
+using UnityEngine.SceneManagement;
 
 public class Server
 {
-    private ChessGameManager.EChessTeam blackPlayer = ChessGameManager.EChessTeam.None;
     private readonly List<Socket> m_clients = new();
+    private ChessGameManager.EChessTeam blackPlayer = ChessGameManager.EChessTeam.None;
     private Socket m_socket;
 
     private ChessGameManager.EChessTeam whitePlayer = ChessGameManager.EChessTeam.None;
@@ -39,11 +39,11 @@ public class Server
     {
         HandleUsersConnection();
 
-        var disconnected = new List<Socket>();
+        List<Socket> disconnected = new();
 
         foreach (Socket client in m_clients)
         {
-            if (client == null || !client.Connected)
+            if (client == null || !IsConnected(client))
             {
                 disconnected.Add(client);
                 continue;
@@ -55,13 +55,10 @@ public class Server
         }
 
         foreach (Socket c in disconnected)
-        {
-            c.Close();
-            m_clients.Remove(c);
-        }
+            HandleUserDisconnection(c);
     }
 
-    
+
     private void HandleUsersConnection()
     {
         if (m_socket == null)
@@ -97,9 +94,7 @@ public class Server
 
             // If both players exist, prompt color selection
             if (whitePlayer != ChessGameManager.EChessTeam.None && blackPlayer != ChessGameManager.EChessTeam.None)
-            {
                 BroadcastMessage(MessageBuilder.MessageType.GameState, "SHOW_COLOR_SELECTION");
-            }
         }
         catch (SocketException se)
         {
@@ -109,7 +104,6 @@ public class Server
     }
 
 
-    
     public void DispatchMessage(Socket target, MessageBuilder.MessageType type, string content)
     {
         if (target == null || !target.Connected) return;
@@ -119,20 +113,29 @@ public class Server
         {
             target.Send(msg);
         }
-        catch { }
+        catch
+        {
+        }
     }
 
-    
+
     public void Shutdown()
     {
         Debug.Log("[Server] Shutting down...");
+
+        BroadcastMessage(MessageBuilder.MessageType.GameState, "SERVER_SHUTDOWN");
+
+        if (ChessGameManager.Instance)
+        {
+            Debug.Log("[Server] Host cleanup : returning to main menu.");
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
 
         foreach (Socket client in m_clients)
         {
             try
             {
-                if (client.Connected)
-                    client.Shutdown(SocketShutdown.Both);
+                if (client.Connected) client.Shutdown(SocketShutdown.Both);
             }
             catch
             {
@@ -155,7 +158,7 @@ public class Server
         }
         catch (SocketException se)
         {
-            Debug.LogWarning("[Server] Error closing listening socket : " + se.Message);
+            Debug.LogWarning("[Server] Error closing socket : " + se.Message);
         }
         finally
         {
@@ -163,6 +166,62 @@ public class Server
         }
 
         Debug.Log("[Server] Shutdown complete!");
+    }
+
+
+    private void HandleUserDisconnection(Socket client)
+    {
+        if (client == null)
+            return;
+
+        Debug.Log($"[Server] Client disconnected : {client.RemoteEndPoint}");
+
+        try
+        {
+            client.Close();
+        }
+        catch
+        {
+        }
+
+        m_clients.Remove(client);
+
+        if (m_clients.Count == 0)
+        {
+            Debug.Log("[Server] All clients disconnected, closing server.");
+            Shutdown();
+            return;
+        }
+
+        if (client == GetPlayerSocket(ChessGameManager.EChessTeam.White))
+        {
+            whitePlayer = ChessGameManager.EChessTeam.None;
+            BroadcastMessage(MessageBuilder.MessageType.GameState, "SERVER_SHUTDOWN");
+            Shutdown();
+        }
+        else if (client == GetPlayerSocket(ChessGameManager.EChessTeam.Black))
+        {
+            blackPlayer = ChessGameManager.EChessTeam.None;
+            BroadcastMessage(MessageBuilder.MessageType.GameState, "SERVER_SHUTDOWN");
+            Shutdown();
+        }
+        else
+        {
+            // Spectateur parti -> rien de grave
+            Debug.Log("[Server] A spectator has left.");
+        }
+    }
+
+
+    private Socket GetPlayerSocket(ChessGameManager.EChessTeam team)
+    {
+        if (m_clients.Count > 0 && team == ChessGameManager.EChessTeam.White)
+            return m_clients[0];
+
+        if (m_clients.Count > 1 && team == ChessGameManager.EChessTeam.Black)
+            return m_clients[1];
+
+        return null;
     }
 
 
@@ -226,8 +285,13 @@ public class Server
         foreach (Socket client in m_clients)
         {
             if (client == null || client == exclude) continue;
-            try { client.Send(msg); }
-            catch { }
+            try
+            {
+                client.Send(msg);
+            }
+            catch
+            {
+            }
         }
     }
 
@@ -242,14 +306,14 @@ public class Server
             case MessageBuilder.MessageType.Chat:
                 BroadcastMessage(MessageBuilder.MessageType.Chat, content, sender);
                 break;
-            
+
             case MessageBuilder.MessageType.PlayerAction:
                 ChessGameManager.Instance.ApplyNetworkMove(content);
                 BroadcastMessage(MessageBuilder.MessageType.PlayerAction, content, sender);
                 break;
-            
+
             case MessageBuilder.MessageType.GameState:
-                BroadcastMessage(MessageBuilder.MessageType.GameState, content, sender); 
+                BroadcastMessage(MessageBuilder.MessageType.GameState, content, sender);
                 ChessGameManager.Instance.ProcessNetworkGameCommand(content);
                 break;
 

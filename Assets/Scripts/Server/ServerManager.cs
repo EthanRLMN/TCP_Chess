@@ -30,7 +30,7 @@ public class ServerManager : MonoBehaviour
     }
 
 
-    private void LateUpdate()
+    private void Update()
     {
         if (m_server == null)
             return;

@@ -243,6 +243,14 @@ public class Client : MonoBehaviour
             case MessageBuilder.MessageType.GameState:
                 Debug.Log("[Client] GameState received: " + content);
                 ChessGameManager.Instance.ProcessNetworkGameCommand(content);
+                
+                if (content.Trim() == "SERVER_SHUTDOWN")
+                {
+                    Debug.LogWarning("[Client] Server shutdown detected. Returning to main menu...");
+                    Disconnect();
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+                }
+                
                 break;
 
             default:
