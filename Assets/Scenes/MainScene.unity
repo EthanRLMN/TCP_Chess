@@ -563,8 +563,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0fe611086d8498946ba6a0dc128cb1bf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_ipString: 127.0.0.1
-  m_port: 10147
+  m_chatBoxObj: {fileID: 736823703}
 --- !u!1 &171110028
 GameObject:
   m_ObjectHideFlags: 0
@@ -1483,7 +1482,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_menuRoot: {fileID: 1162495020}
-  m_chatBoxObj: {fileID: 736823703}
   m_ipInputField: {fileID: 615468700}
   m_connectDisconnectButton: {fileID: 1063032968}
   m_hostButton: {fileID: 323905525}
@@ -2498,6 +2496,7 @@ MonoBehaviour:
   ChatDisplayOutput: {fileID: 1570291532}
   ChatScrollbar: {fileID: 79829322}
   IsVisible: 0
+  ChatPanel: {fileID: 736823703}
 --- !u!4 &877487927
 Transform:
   m_ObjectHideFlags: 0
@@ -3475,7 +3474,7 @@ GameObject:
   - component: {fileID: 1162495021}
   - component: {fileID: 1162495022}
   m_Layer: 5
-  m_Name: ServerSelector
+  m_Name: Menu
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

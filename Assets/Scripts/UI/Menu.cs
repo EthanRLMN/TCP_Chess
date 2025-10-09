@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 
 
-public class ServerSelector : MonoBehaviour
+public class Menu : MonoBehaviour
 {
     [Header("UI Elements")]
     [SerializeField] private GameObject m_menuRoot;
