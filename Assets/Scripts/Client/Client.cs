@@ -1,38 +1,28 @@
 using System;
-using System.Collections;
-using UnityEngine;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+
+using UnityEngine;
 
 
 public class Client : MonoBehaviour
 {
     #region Variables
 
-    [SerializeField] private string m_ipString = "10.2.107.154";
-    [SerializeField] private int m_port = 10147;
+    [SerializeField] private GameObject m_chatBoxObj;
+    
+    private string m_ipString = "10.2.107.154";
+    private int m_port = 10147;
+    
     private IPAddress m_ipAddress;
     private Socket m_clientSocket;
     private bool m_isConnecting = false, m_isHost = false, m_isConnected = false;
-
-    public bool IsConnected
-    {
-        get
-        {
-            if (m_clientSocket == null)
-                return false;
-
-            try
-            {
-                return !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-    }
+    
+    private ChatBox m_chatBox;
+    
+    public string Nickname { get; set; }
+    public bool IsConnected => m_clientSocket != null && !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
 
     #endregion
     
@@ -41,7 +31,10 @@ public class Client : MonoBehaviour
 
     private void Awake()
     {
+        Nickname = "Player#" + UnityEngine.Random.Range(0001, 9999).ToString("D4");
         SetupClient();
+        
+        m_chatBox = FindFirstObjectByType<ChatBox>();
     }
 
 
@@ -56,9 +49,9 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
         
-        string message = ReceiveChatMessage();
-        if (!string.IsNullOrEmpty(message))
-            Debug.Log("[Client] Received : " + message);
+        Message message = ReceiveMessage(m_clientSocket);
+        if (message != null)
+            HandleMessage(message);
     }
 
     #endregion
@@ -80,7 +73,7 @@ public class Client : MonoBehaviour
             }
         }
 
-        m_ipAddress = IPAddress.Loopback;
+        m_ipAddress = IPAddress.Parse(m_ipString);
         m_clientSocket = new Socket(m_ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         m_clientSocket.Blocking = false;    
     }
@@ -93,9 +86,7 @@ public class Client : MonoBehaviour
 
         try
         {
-            m_clientSocket.Blocking = false;
             m_clientSocket.Connect(ipEndPoint);
-            Debug.Log("[Client] Connected to server : " + ipEndPoint);
         }
         catch (SocketException se)
         {
@@ -148,16 +139,17 @@ public class Client : MonoBehaviour
     }
 
 
-    public void SendChatMessage(string message)
+    public void SendMessage(MessageBuilder.MessageType type, string content)
     {
         if (!IsConnected)
             return;
 
-        byte[] messageBytes = Encoding.ASCII.GetBytes(message);
+        byte[] contentBytes = Encoding.UTF8.GetBytes(content);
+        byte[] message = MessageBuilder.BuildMessage(type, contentBytes);
 
         try
         {
-            m_clientSocket.Send(messageBytes);
+            m_clientSocket.Send(message);
             Debug.Log("[Client] " + message);
         }
         catch (SocketException se)
@@ -166,42 +158,90 @@ public class Client : MonoBehaviour
                 Debug.LogError("[Client] Error sending message : " + se.Message);
         }
     }
-
-
-    private string ReceiveChatMessage()
+    
+    
+    public void SendChatMessage(string message)
     {
         if (!IsConnected)
-            return string.Empty;
+            return;
+
+        string formattedMessage = $"{Nickname}|{message}";
+        byte[] msg = MessageBuilder.BuildMessage(MessageBuilder.MessageType.Chat, Encoding.UTF8.GetBytes(formattedMessage));
 
         try
         {
-            if (m_clientSocket.Poll(0, SelectMode.SelectRead))
-            {
-                if (m_clientSocket.Available == 0)
-                {
-                    Debug.Log("[Client] Connection closed by server!");
-                    Disconnect();
-                    return string.Empty;
-                }
-
-                byte[] buffer = new byte[1024];
-                int received = m_clientSocket.Receive(buffer);
-                return Encoding.ASCII.GetString(buffer, 0, received);
-            }
+            m_clientSocket.Send(msg);
+            Debug.Log("[Client] Chat message sent: " + formattedMessage);
         }
         catch (SocketException se)
         {
             if (se.SocketErrorCode != SocketError.WouldBlock)
-                Debug.LogError("[Client] Receive error : " + se.Message);
+                Debug.LogError("[Client] Error sending chat: " + se.Message);
         }
-
-        return string.Empty;
     }
 
 
-    private IEnumerator PingServer()
+    private Message ReceiveMessage(Socket socket)
     {
-        yield return new WaitForSeconds(30);
+        if (socket == null || !socket.Connected)
+            return null;
+
+        // Make sure the header is available
+        if (socket.Available < 8)
+            return null;
+
+        // Try to read the header and see if it matches
+        byte[] header = new byte[8];
+        int headerRead = socket.Receive(header, 0, 8, SocketFlags.None);
+        if (headerRead < 8)
+        {
+            Debug.LogWarning("[Receive] Incomplete header.");
+            return null;
+        }
+
+        int contentLength = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(header, 0));
+        MessageBuilder.MessageType type = (MessageBuilder.MessageType)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(header, 4));
+
+        // Try to read the message content
+        byte[] content = new byte[contentLength];
+        int totalRead = 0;
+        while (totalRead < contentLength)
+        {
+            int read = socket.Receive(content, totalRead, contentLength - totalRead, SocketFlags.None);
+            if (read <= 0)
+                return null;
+            
+            totalRead += read;
+        }
+        return new Message(type, content);
+    }
+
+
+    private void HandleMessage(Message msg)
+    {
+        string content = Encoding.UTF8.GetString(msg.Content);
+
+        switch (msg.Type)
+        {
+            case MessageBuilder.MessageType.Chat:
+                m_chatBox?.AddToChatOutput(content);
+                Debug.Log("[Client] Chat : " + content);
+                break;
+
+            case MessageBuilder.MessageType.GameState:
+                Debug.Log("[Client] GameState : " + content);
+                // TODO: Update local board state
+                break;
+
+            case MessageBuilder.MessageType.PlayerAction:
+                Debug.Log("[Client] PlayerAction : " + content);
+                // TODO: Mirror opponent action
+                break;
+
+            default:
+                Debug.LogWarning("[Client] Unknown message type : " + msg.Type);
+                break;
+        }
     }
     
     #endregion

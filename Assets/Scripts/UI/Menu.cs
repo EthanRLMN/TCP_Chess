@@ -1,37 +1,89 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 
-public class ServerSelector : MonoBehaviour
+public class Menu : MonoBehaviour
 {
     [Header("UI Elements")]
     [SerializeField] private GameObject m_menuRoot;
+    [SerializeField] private TMP_InputField m_nicknameInputField;
     [SerializeField] private TMP_InputField m_ipInputField;
     [SerializeField] private Button m_connectDisconnectButton;
     [SerializeField] private Button m_hostButton;
-    
+
     private bool m_isHost = false, m_isConnected = false, m_isOpen = false;
 
     private string m_ipAddress = "127.0.0.1";
     private int m_port = 10147;
 
-    
+    private Client m_client;
+
+
     private void Awake()
     {
+        m_client = FindFirstObjectByType<Client>();
+        
         if (m_ipInputField)
             m_ipInputField.text = $"{m_ipAddress}:{m_port}";
         
-        if (m_connectDisconnectButton)
-            m_connectDisconnectButton.onClick.AddListener(OnConnectDisconnectClicked);
+        if (m_client != null && m_nicknameInputField != null)
+            m_nicknameInputField.text = m_client.Nickname;
+        
+        m_hostButton.onClick.AddListener(OnHostButtonClicked);
+        m_connectDisconnectButton.onClick.AddListener(OnConnectDisconnectClicked);
+        m_nicknameInputField.onValueChanged.AddListener(OnNicknameChange);
 
-        if (m_hostButton)
-            m_hostButton.onClick.AddListener(OnHostButtonClicked);
 
         RefreshUI();
     }
 
+
+    private void OnDestroy()
+    {
+        if (m_nicknameInputField != null)
+            m_nicknameInputField.onValueChanged.RemoveListener(OnNicknameChange);
+        
+        m_hostButton.onClick.RemoveListener(OnHostButtonClicked);
+        m_connectDisconnectButton.onClick.RemoveListener(OnConnectDisconnectClicked);
+    }
+
+
+    private void LateUpdate()
+    {
+        if (!m_isOpen)
+            return;
+
+        if (!m_ipInputField)
+            return;
+        
+        string input = m_ipInputField.text;
+        string[] parts = input.Split(':');
+        if (parts.Length != 2) 
+            return;
+        
+        m_ipAddress = parts[0];
+        if (!int.TryParse(parts[1], out m_port))
+            m_port = 10147; // Default port
+    }
+
     
+    private void OnNicknameChange(string newNickname)
+    {
+        if (m_isHost || m_isConnected)
+        {
+            if (m_client != null)
+                m_nicknameInputField.text = m_client.Nickname;
+            
+            return;
+        }
+
+        if (m_client != null && !string.IsNullOrWhiteSpace(newNickname))
+            m_client.Nickname = newNickname;
+    }
+    
+
     private void RefreshUI()
     {
         if (m_ipInputField)
@@ -45,6 +97,8 @@ public class ServerSelector : MonoBehaviour
             
             m_connectDisconnectButton.interactable = !m_isHost;
         }
+        
+        RefreshNicknameField();
         
         if (!m_hostButton)
             return;
@@ -68,21 +122,9 @@ public class ServerSelector : MonoBehaviour
 
     private void ConnectToServer()
     {
-        if (m_ipInputField)
-        {
-            string input = m_ipInputField.text;
-            string[] parts = input.Split(':');
-            if (parts.Length == 2)
-            {
-                m_ipAddress = parts[0];
-                if (!int.TryParse(parts[1], out m_port))
-                    m_port = 10147; // Default port
-            }
-        }
-
         Debug.Log($"[ServerSelector] Trying to connect to {m_ipAddress}:{m_port}...");
         
-        // TODO : Call client instance connection function
+        m_client.ConnectAttempt(m_ipAddress, m_port);
         m_isConnected = true;
 
         RefreshUI();
@@ -111,7 +153,9 @@ public class ServerSelector : MonoBehaviour
         {
             Debug.Log("[ServerSelector] Shutting down server...");
             
-            ServerManager.Instance.ServerCheck();
+            ServerManager.Instance.StopServer();
+            m_client.Disconnect();
+            
             m_isHost = false;
             m_isConnected = false;
         }
@@ -119,21 +163,27 @@ public class ServerSelector : MonoBehaviour
         {
             Debug.Log("[ServerSelector] Starting host server...");
             
-            ServerManager.Instance.ServerCheck();
+            ServerManager.Instance.StartServer(m_ipAddress, m_port);
+            m_client.ConnectAttempt(m_ipAddress, m_port);
+            
             m_isHost = true;
             m_isConnected = true;
         }
-
+        
         RefreshUI();
     }
     
     
     public void ToggleMenu()
     {
-        if (m_isOpen)
-            SetMenuOpen(false);
-        else
-            SetMenuOpen(true);
+        SetMenuOpen(!m_isOpen);
+    }
+    
+    
+    private void RefreshNicknameField()
+    {
+        if (m_nicknameInputField != null)
+            m_nicknameInputField.interactable = !m_isConnected && !m_isHost;
     }
 
     
