@@ -98,7 +98,7 @@ public class Server
             // If both players exist, prompt color selection
             if (whitePlayer != ChessGameManager.EChessTeam.None && blackPlayer != ChessGameManager.EChessTeam.None)
             {
-                DispatchMessage(newClient, MessageBuilder.MessageType.GameState, "SHOW_COLOR_SELECTION");
+                BroadcastMessage(MessageBuilder.MessageType.GameState, "SHOW_COLOR_SELECTION");
             }
         }
         catch (SocketException se)
