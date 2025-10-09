@@ -13,7 +13,7 @@ public class CameraLookAt : MonoBehaviour
     [SerializeField]
     private float height = 32f;
 
-	void Update ()
+	private void LateUpdate ()
     {
         Vector3 position = transform.position;
         position.y = height;

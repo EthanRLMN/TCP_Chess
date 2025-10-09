@@ -14,8 +14,8 @@ public class ChessAI : MonoBehaviour
     {
         get
         {
-            if (instance == null)
-                instance = FindObjectOfType<ChessAI>();
+            if (!instance)
+                instance = FindFirstObjectByType<ChessAI>();
             return instance;
         }
     }
@@ -31,7 +31,7 @@ public class ChessAI : MonoBehaviour
         move.from = 0;
         move.to = 1;
 
-        List<ChessGameManager.Move> moves = new List<ChessGameManager.Move>(); ;
+        List<ChessGameManager.Move> moves = new(); ;
         ChessGameManager.Instance.GetBoardState().GetValidMoves(ChessGameManager.EChessTeam.Black, moves);
 
         if (moves.Count > 0)

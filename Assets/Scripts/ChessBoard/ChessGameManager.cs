@@ -1,5 +1,9 @@
 ﻿using UnityEngine;
+using System;
+using System.Net;
+using System.Net.Sockets;
 using System.Collections.Generic;
+using System.Collections;
 
 /*
  * This singleton manages the whole chess game
@@ -17,8 +21,8 @@ public partial class ChessGameManager : MonoBehaviour
     public static ChessGameManager Instance {
         get
         {
-            if (instance == null)
-                instance = FindObjectOfType<ChessGameManager>();
+            if (!instance)
+                instance = FindFirstObjectByType<ChessGameManager>();
             return instance;
         }
     }
@@ -50,7 +54,8 @@ public partial class ChessGameManager : MonoBehaviour
     {
         White = 0,
         Black,
-        None
+        None,
+        Spectator
     }
 
     public enum ETeamFlag : uint
@@ -124,6 +129,8 @@ public partial class ChessGameManager : MonoBehaviour
 
     EChessTeam teamTurn;
 
+    EChessTeam localPlayerTeam = EChessTeam.None;
+
     List<uint> scores;
 
     public delegate void PlayerTurnEvent(bool isWhiteMove);
@@ -154,37 +161,124 @@ public partial class ChessGameManager : MonoBehaviour
         }
     }
 
-    public void PlayTurn(Move move)
+    public void ApplyNetworkMove(string message)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            message = message.Trim();
+
+            string[] parts = message.Split('-');
+            if (parts.Length != 2)
+            {
+                Debug.LogError("[ChessGameManager] Invalid network move format : " + message);
+                return;
+            }
+
+            if (!int.TryParse(parts[0], out int from) || !int.TryParse(parts[1], out int to))
+            {
+                Debug.LogError("[ChessGameManager] Cannot parse network move : " + message);
+                return;
+            }
+
+            Move move = new Move { from = from, to = to };
+
+            Debug.Log("[ChessGameManager] Applying network move " + message);
+            PlayTurn(move, true);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[ChessGameManager] Exception in ApplyNetworkMove : " + e);
+        }
+    }
+    
+    
+    public void ProcessNetworkGameCommand(string command)
+    {
+        command = command.Trim();
+        if (string.IsNullOrEmpty(command))
+            return;
+
+        if (command.StartsWith("TEAM:"))
+        {
+            string teamStr = command.Substring(5);
+            if (Enum.TryParse(teamStr, out EChessTeam receivedTeam))
+            {
+                Debug.Log($"[ChessGameManager] Received TEAM command : {receivedTeam}");
+                StartNetworkGame(receivedTeam);
+            }
+        }
+        else if (command == "SHOW_COLOR_SELECTION")
+        {
+            GUIManager.Instance.ShowColorSelection();
+        }
+        else
+        {
+            Debug.LogWarning("[ChessGameManager] Unknown GameState command : " + command);
+        }
+    }
+    
+
+    public void PlayTurn(Move move, bool isNetworkMove)
     {
         if (boardState.IsValidMove(teamTurn, move))
         {
             BoardState.EMoveResult result = boardState.PlayUnsafeMove(move);
+            // Manage pawn promotion
             if (result == BoardState.EMoveResult.Promotion)
             {
-                // instantiate promoted queen gameobject
+                Debug.Log($"[ChessManager] Promotion d'un pion en reine ({teamTurn}) !");
                 AddQueenAtPos(move.to);
             }
 
-            EChessTeam otherTeam = (teamTurn == EChessTeam.White) ? EChessTeam.Black : EChessTeam.White;
-            if (boardState.DoesTeamLose(otherTeam))
+            // If local move, send it to the network
+            if (!isNetworkMove)
             {
-                // increase score and reset board
-                scores[(int)teamTurn]++;
-                if (OnScoreUpdated != null)
-                    OnScoreUpdated(scores[0], scores[1]);
+                string moveStr = $"{move.from}-{move.to}";
 
+                if (ServerManager.Instance?.Server != null && ServerManager.Instance.Server.HasClient)
+                    ServerManager.Instance.Server.BroadcastMessage(MessageBuilder.MessageType.PlayerAction, moveStr);
+                else
+                {
+                    Client m_client = FindFirstObjectByType<Client>();
+                    if (m_client && m_client.IsConnected)
+                    {
+                        m_client.SendMessage(MessageBuilder.MessageType.PlayerAction, moveStr);
+                    }
+                }
+            }
+
+            UpdatePieces();
+
+            EChessTeam enemyTeam = (teamTurn == EChessTeam.White ? EChessTeam.Black : EChessTeam.White);
+            if(boardState.DoesTeamLose(enemyTeam))
+            {
+                scores[(int)teamTurn]++;
+                OnScoreUpdated?.Invoke(scores[0], scores[1]);
+                Debug.Log($"[ChessManager] Le joueur {teamTurn} a gagné la partie !");
+
+                //Reset board
                 PrepareGame(false);
-                // remove extra piece instances if pawn promotions occured
-                teamPiecesArray[0].ClearPromotedPieces();
-                teamPiecesArray[1].ClearPromotedPieces();
+                UpdatePieces();
+
+                OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
+                return;
+            }
+
+            // Change turn if only local move
+            if (!isNetworkMove)
+            {
+                teamTurn = (teamTurn == EChessTeam.White ? EChessTeam.Black : EChessTeam.White);
+                OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
             }
             else
             {
-                teamTurn = otherTeam;
+                // If it is a move received by the network, keep the turn
+                teamTurn = (teamTurn == EChessTeam.White ? EChessTeam.Black : EChessTeam.White);
+                OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
             }
-            // raise event
-            if (OnPlayerTurn != null)
-                OnPlayerTurn(teamTurn == EChessTeam.White);
         }
     }
 
@@ -200,7 +294,10 @@ public partial class ChessGameManager : MonoBehaviour
 
     public bool IsPlayerTurn()
     {
-        return teamTurn == EChessTeam.White;
+        //If no teams are chose, can't play
+        if (localPlayerTeam == EChessTeam.None)
+            return false;
+        return teamTurn == localPlayerTeam;
     }
 
     public BoardSquare GetSquare(int pos)
@@ -236,6 +333,30 @@ public partial class ChessGameManager : MonoBehaviour
         return xPos + zPos * BOARD_SIZE;
     }
 
+    public void StartNetworkGame(EChessTeam assignedLocalTeam)
+    {
+        localPlayerTeam = assignedLocalTeam;
+        Debug.Log($"[ChessGameManager] StartNetworkGame -> localPlayerTeam = {localPlayerTeam}");
+
+        // Reset board but not the scores
+        PrepareGame(false);
+
+        // White team always start
+        teamTurn = EChessTeam.White;
+
+        // Update render
+        UpdatePieces();
+        OnPlayerTurn?.Invoke(teamTurn == EChessTeam.White);
+
+        Debug.Log($"[ChessGameManager] teamTurn = {teamTurn}, localPlayerTeam = {localPlayerTeam}, IsPlayerTurn = {IsPlayerTurn()}");
+
+        if(localPlayerTeam == EChessTeam.Spectator)
+        {
+            Debug.Log("[ChessGameManager] Spectator active");
+            return;
+        }
+    }
+
     #endregion
 
     #region MonoBehaviour
@@ -246,6 +367,10 @@ public partial class ChessGameManager : MonoBehaviour
 
     void Start()
     {
+        if (ServerManager.Instance?.Server == null && (FindFirstObjectByType<Client>()?.IsConnected ?? false) == false)
+            return;
+        StartCoroutine(WaitForNetworkReady());
+
         pieceLayerMask = 1 << LayerMask.NameToLayer("Piece");
         boardLayerMask = 1 << LayerMask.NameToLayer("Board");
 
@@ -267,17 +392,33 @@ public partial class ChessGameManager : MonoBehaviour
         if (OnScoreUpdated != null)
             OnScoreUpdated(scores[0], scores[1]);
     }
-
-    void Update()
+    
+    private void Update()
     {
         // human player always plays white
         if (teamTurn == EChessTeam.White)
             UpdatePlayerTurn();
         // AI plays black
-        else if (isAIEnabled)
-            UpdateAITurn();
+        //else if (isAIEnabled)
+        //    UpdateAITurn();
         else
             UpdatePlayerTurn();
+    }
+
+    private IEnumerator WaitForNetworkReady()
+    {
+        Debug.Log("[ChessManager] Waiting for server/client to be ready...");
+        while (true)
+        {
+            bool hasServer = ServerManager.Instance && ServerManager.Instance.Server != null;
+            bool hasClient = hasServer && ServerManager.Instance.Server.HasClient;
+            if (hasClient)
+                break;
+
+            yield return new WaitForSeconds(0.5f);
+        }
+        Debug.Log("[ChessManager] Both players are ready. Showing color selection menu ...");
+        GUIManager.Instance.ShowColorSelection();
     }
     #endregion
 
@@ -371,16 +512,23 @@ public partial class ChessGameManager : MonoBehaviour
     int startPos = 0;
     int destPos = 0;
 
-    void UpdateAITurn()
-    {
-        Move move = chessAI.ComputeMove();
-        PlayTurn(move);
+    //void UpdateAITurn()
+    //{
+    //    Move move = chessAI.ComputeMove();
+    //    PlayTurn(move);
 
-        UpdatePieces();
-    }
+    //    UpdatePieces();
+    //}
 
     void UpdatePlayerTurn()
     {
+        if (!CanLocalPlayerPlay())
+            return;
+
+        //Block inputs when it's not your turn
+        if(!IsPlayerTurn())
+            return;
+
         if (Input.GetMouseButton(0))
         {
             if (grabbed)
@@ -405,7 +553,7 @@ public partial class ChessGameManager : MonoBehaviour
                 move.from = startPos;
                 move.to = destPos;
 
-                PlayTurn(move);
+                PlayTurn(move, false);
 
                 UpdatePieces();
             }
@@ -415,6 +563,42 @@ public partial class ChessGameManager : MonoBehaviour
             }
             grabbed = null;
         }
+    }
+
+    public void HandleTeamMessage(string teamMessage, bool isServer)
+    {
+        if (!teamMessage.StartsWith("TEAM:"))
+            return;
+
+        string teamStr = teamMessage.Substring(5);
+        if (!Enum.TryParse(teamStr, out EChessTeam receivedTeam))
+            return;
+
+        if(receivedTeam == EChessTeam.Spectator)
+        {
+            Debug.Log("[ChessGameManager] Spectator joined.");
+            StartNetworkGame(EChessTeam.Spectator);
+            return;
+        }
+
+        EChessTeam localTeam = receivedTeam;
+        if (isServer)
+        {
+            localTeam = (receivedTeam == EChessTeam.White)
+                ? EChessTeam.Black
+                : EChessTeam.White;
+        }
+
+        Debug.Log($"[ChessGameManager] {(isServer ? "Server" : "Client")} local team set to {localTeam}");
+        StartNetworkGame(localTeam);
+    }
+
+    public bool CanLocalPlayerPlay()
+    {
+        if (localPlayerTeam == EChessTeam.Spectator)
+            return false;
+        
+        return localPlayerTeam != EChessTeam.None && localPlayerTeam != EChessTeam.Spectator && teamTurn == localPlayerTeam;
     }
 
     void ComputeDrag()
