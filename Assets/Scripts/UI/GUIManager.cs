@@ -200,7 +200,7 @@ public class GUIManager : MonoBehaviour
                 : ChessGameManager.EChessTeam.White;
 
             Debug.Log($"[GUIManager] Server sending TEAM:{clientTeam}");
-            ServerManager.Instance.Server.BroadcastMessage($"TEAM:{clientTeam}");
+            ServerManager.Instance.Server.BroadcastMessage(MessageBuilder.MessageType.PlayerAction, $"TEAM:{clientTeam}");
             ChessGameManager.Instance.StartNetworkGame(team);
         }
         else

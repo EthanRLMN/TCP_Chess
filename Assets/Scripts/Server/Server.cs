@@ -3,29 +3,28 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Collections.Generic;
 using UnityEngine;
+
 
 public class Server
 {
+    private ChessGameManager.EChessTeam blackPlayer = ChessGameManager.EChessTeam.None;
+    private readonly List<Socket> m_clients = new();
     private Socket m_socket;
-    private List<Socket> m_clients = new List<Socket>();
-    private string m_receiveBuffer = "";
 
     private ChessGameManager.EChessTeam whitePlayer = ChessGameManager.EChessTeam.None;
-    private ChessGameManager.EChessTeam blackPlayer = ChessGameManager.EChessTeam.None;
 
     public string IpAddress { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 10147;
     public int Listeners { get; set; } = 4;
-    public bool HasClient => m_clients.Count > 0;
+    public bool HasClient => m_clients.Count > 1;
 
     public void Initialize()
     {
         Debug.Log("[Server] Initializing...");
 
         IPAddress ipAddress = IPAddress.Parse(IpAddress);
-        IPEndPoint localEP = new IPEndPoint(ipAddress, Port);
+        IPEndPoint localEP = new(ipAddress, Port);
 
         m_socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         m_socket.Blocking = false;
@@ -34,26 +33,15 @@ public class Server
 
         Debug.Log($"[Server] Listening on {localEP.Address}:{localEP.Port}");
     }
+
+
     public void Update()
     {
         HandleUsersConnection();
 
-        for (int i = m_clients.Count - 1; i >= 0; --i)
-        {
-            Socket client = m_clients[i];
-            if (client == null || !client.Connected)
-            {
-                m_clients.RemoveAt(i);
-                continue;
-            }
+        var disconnected = new List<Socket>();
 
-            Message msg = ReceiveMessage(client);
-            if (msg != null)
-                HandleMessage(msg, client);
-        }
-    }
-
-        foreach (var client in m_clients)
+        foreach (Socket client in m_clients)
         {
             if (client == null || !client.Connected)
             {
@@ -61,98 +49,19 @@ public class Server
                 continue;
             }
 
-            try
-            {
-                if (!client.Poll(0, SelectMode.SelectRead))
-                    continue;
-
-                if (client.Available == 0)
-                {
-                    Debug.Log("[Server] Client disconnected.");
-                    disconnected.Add(client);
-                    continue;
-                }
-
-                byte[] buffer = new byte[1024];
-                int received = client.Receive(buffer);
-                string messageChunk = Encoding.UTF8.GetString(buffer, 0, received);
-                m_receiveBuffer += messageChunk;
-
-                int newLineIndex;
-                while ((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
-                {
-                    string fullMessage = m_receiveBuffer.Substring(0, newLineIndex).Trim();
-                    m_receiveBuffer = m_receiveBuffer.Substring(newLineIndex + 1);
-
-                    if (string.IsNullOrEmpty(fullMessage))
-                        continue;
-
-                    Debug.Log("[Server] Received : " + fullMessage);
-
-                    if (fullMessage.StartsWith("TEAM:"))
-                    {
-                        string clientTeam = fullMessage.Substring(5);
-                        var senderSocket = client; 
-                        var parsedTeam = (ChessGameManager.EChessTeam)Enum.Parse(typeof(ChessGameManager.EChessTeam), clientTeam);
-
-                        string assignedTeam = "Spectator";
-
-                        if (parsedTeam == ChessGameManager.EChessTeam.White && whitePlayer == ChessGameManager.EChessTeam.None)
-                        {
-                            whitePlayer = ChessGameManager.EChessTeam.White;
-                            assignedTeam = "White";
-                        }
-                        else if (parsedTeam == ChessGameManager.EChessTeam.Black && blackPlayer == ChessGameManager.EChessTeam.None)
-                        {
-                            blackPlayer = ChessGameManager.EChessTeam.Black;
-                            assignedTeam = "Black";
-                        }
-                        else
-                        {
-                            Debug.Log($"[Server] Requested team {clientTeam} already taken, assigning Spectator.");
-                        }
-
-                        DispatchMessage(senderSocket, $"TEAM:{assignedTeam}");
-                        Debug.Log($"[Server] Assigned {assignedTeam} to client");
-
-                        BroadcastMessage($"TEAM_TAKEN:{assignedTeam}", senderSocket);
-
-                        // Optionally start the game automatically once both players have joined
-                        if (whitePlayer != ChessGameManager.EChessTeam.None && blackPlayer != ChessGameManager.EChessTeam.None)
-                        {
-                            Debug.Log("[Server] Both teams ready, starting game!");
-                            ChessGameManager.Instance.StartNetworkGame(ChessGameManager.EChessTeam.None); // server spectates
-                            BroadcastMessage("START_GAME");
-                        }
-
-                        if(fullMessage.StartsWith("TEAM_TAKEN:"))
-                        {
-                            string teamTaken = fullMessage.Substring(11);
-                            GUIManager.Instance.DisableTeamButton(teamTaken);
-                            continue;
-                        }
-
-                        continue;
-                    }
-
-                    // Move broadcast
-                    ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
-                    BroadcastMessage(fullMessage, client); // Send to everyone excepte himself
-                }
-            }
-            catch (SocketException se)
-            {
-                if (se.SocketErrorCode != SocketError.WouldBlock)
-                    Debug.LogError("[Server] Error receiving message : " + se.Message);
-            }
+            Message msg = ReceiveMessage(client);
+            if (msg != null)
+                HandleMessage(msg, client);
         }
-        foreach (var c in disconnected)
+
+        foreach (Socket c in disconnected)
         {
             c.Close();
             m_clients.Remove(c);
         }
     }
 
+    
     private void HandleUsersConnection()
     {
         if (m_socket == null)
@@ -166,8 +75,31 @@ public class Server
             Socket newClient = m_socket.Accept();
             newClient.Blocking = false;
             m_clients.Add(newClient);
-            Debug.Log("[Server] New user connected! Total clients: " + m_clients.Count);
-            DispatchMessage(newClient, "SHOW_COLOR_SELECTION");
+
+            Debug.Log("[Server] New user connected! Total clients : " + m_clients.Count);
+
+            // Assign team
+            ChessGameManager.EChessTeam assignedTeam = ChessGameManager.EChessTeam.Spectator;
+
+            if (whitePlayer == ChessGameManager.EChessTeam.None)
+            {
+                whitePlayer = ChessGameManager.EChessTeam.White;
+                assignedTeam = ChessGameManager.EChessTeam.White;
+            }
+            else if (blackPlayer == ChessGameManager.EChessTeam.None)
+            {
+                blackPlayer = ChessGameManager.EChessTeam.Black;
+                assignedTeam = ChessGameManager.EChessTeam.Black;
+            }
+
+            // Send team assignment via GameState only
+            DispatchMessage(newClient, MessageBuilder.MessageType.GameState, $"TEAM:{assignedTeam}");
+
+            // If both players exist, prompt color selection
+            if (whitePlayer != ChessGameManager.EChessTeam.None && blackPlayer != ChessGameManager.EChessTeam.None)
+            {
+                DispatchMessage(newClient, MessageBuilder.MessageType.GameState, "SHOW_COLOR_SELECTION");
+            }
         }
         catch (SocketException se)
         {
@@ -176,27 +108,21 @@ public class Server
         }
     }
 
-    public void DispatchMessage(Socket target, string message)
+
+    
+    public void DispatchMessage(Socket target, MessageBuilder.MessageType type, string content)
     {
+        if (target == null || !target.Connected) return;
+
+        byte[] msg = MessageBuilder.BuildMessage(type, Encoding.UTF8.GetBytes(content));
         try
         {
-            byte[] msg = Encoding.UTF8.GetBytes(message + "\n");
             target.Send(msg);
         }
         catch { }
     }
 
-    public void BroadcastMessage(string message, Socket exclude = null)
-    {
-        byte[] msg = Encoding.UTF8.GetBytes(message + "\n");
-        foreach (var c in m_clients)
-        {
-            if (c == null || !c.Connected || c == exclude)
-                continue;
-            try { c.Send(msg); } catch { }
-        }
-    }
-
+    
     public void Shutdown()
     {
         Debug.Log("[Server] Shutting down...");
@@ -208,13 +134,17 @@ public class Server
                 if (client.Connected)
                     client.Shutdown(SocketShutdown.Both);
             }
-            catch { }
+            catch
+            {
+            }
 
             try
             {
                 client.Close();
             }
-            catch { }
+            catch
+            {
+            }
         }
 
         m_clients.Clear();
@@ -234,8 +164,8 @@ public class Server
 
         Debug.Log("[Server] Shutdown complete!");
     }
-    
-    
+
+
     private static bool IsConnected(Socket socket)
     {
         try
@@ -268,7 +198,8 @@ public class Server
         }
 
         int contentLength = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(header, 0));
-        MessageBuilder.MessageType type = (MessageBuilder.MessageType)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(header, 4));
+        MessageBuilder.MessageType type =
+            (MessageBuilder.MessageType)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(header, 4));
 
         // Try to read the message content
         byte[] content = new byte[contentLength];
@@ -278,72 +209,53 @@ public class Server
             int read = socket.Receive(content, totalRead, contentLength - totalRead, SocketFlags.None);
             if (read <= 0)
                 return null;
-            
+
             totalRead += read;
         }
+
         return new Message(type, content);
     }
-    
-    
-    public void BroadcastMessage(MessageBuilder.MessageType type, string content, Socket except = null)
+
+
+    public void BroadcastMessage(MessageBuilder.MessageType type, string content, Socket exclude = null)
     {
-        if (m_clients.Count == 0)
-        {
-            Debug.Log("[Server] No clients to broadcast to.");
-            return;
-        }
+        if (m_clients.Count == 0) return;
 
         byte[] msg = MessageBuilder.BuildMessage(type, Encoding.UTF8.GetBytes(content));
 
         foreach (Socket client in m_clients)
         {
-            if (client == null || client == except)
-                continue;
-
-            try
-            {
-                client.Send(msg);
-            }
-            catch (SocketException se)
-            {
-                if (se.SocketErrorCode != SocketError.WouldBlock)
-                    Debug.LogWarning("[Server] Broadcast send error : " + se.Message);
-            }
+            if (client == null || client == exclude) continue;
+            try { client.Send(msg); }
+            catch { }
         }
-        Debug.Log($"[Server] Broadcasted {type} : {content}");
     }
-    
-    
+
+
     private void HandleMessage(Message msg, Socket sender)
     {
         string content = Encoding.UTF8.GetString(msg.Content);
         Debug.Log($"[Server] {msg.Type} from {sender.RemoteEndPoint} : {content}");
 
-
         switch (msg.Type)
         {
             case MessageBuilder.MessageType.Chat:
                 BroadcastMessage(MessageBuilder.MessageType.Chat, content, sender);
-                Debug.Log("[Server] Chat relayed : " + content);
                 break;
-
-            case MessageBuilder.MessageType.GameState:
-                Debug.Log("[Server] GameState : " + content);
-                // TODO: Parse game state and update board
-                break;
-
+            
             case MessageBuilder.MessageType.PlayerAction:
-                Debug.Log("[Server] PlayerAction : " + content);
-                // TODO: Apply move then send new GameState to client
+                ChessGameManager.Instance.ApplyNetworkMove(content);
+                BroadcastMessage(MessageBuilder.MessageType.PlayerAction, content, sender);
+                break;
+            
+            case MessageBuilder.MessageType.GameState:
+                BroadcastMessage(MessageBuilder.MessageType.GameState, content, sender); 
+                ChessGameManager.Instance.ProcessNetworkGameCommand(content);
                 break;
 
             default:
-                Debug.LogWarning("[Server] Unknown message type : " + msg.Type);
+                Debug.LogWarning("[Server] Unknown message type: " + msg.Type);
                 break;
         }
     }
-    
-#endregion
-    
-    
 }

@@ -165,22 +165,61 @@ public partial class ChessGameManager : MonoBehaviour
     {
         try
         {
-            string[] parts = message.Split('-');
-            int from = int.Parse(parts[0]);
-            int to = int.Parse(parts[1]);
+            if (string.IsNullOrWhiteSpace(message))
+                return;
 
-            Move move;
-            move.from = from;
-            move.to = to;
+            message = message.Trim();
+
+            string[] parts = message.Split('-');
+            if (parts.Length != 2)
+            {
+                Debug.LogError("[ChessGameManager] Invalid network move format : " + message);
+                return;
+            }
+
+            if (!int.TryParse(parts[0], out int from) || !int.TryParse(parts[1], out int to))
+            {
+                Debug.LogError("[ChessGameManager] Cannot parse network move : " + message);
+                return;
+            }
+
+            Move move = new Move { from = from, to = to };
 
             Debug.Log("[ChessGameManager] Applying network move " + message);
             PlayTurn(move, true);
         }
         catch (Exception e)
         {
-            Debug.LogError("[ChessGameManager] Invalid etwork move: " + " | " + e);
+            Debug.LogError("[ChessGameManager] Exception in ApplyNetworkMove : " + e);
         }
     }
+    
+    
+    public void ProcessNetworkGameCommand(string command)
+    {
+        command = command.Trim();
+        if (string.IsNullOrEmpty(command))
+            return;
+
+        if (command.StartsWith("TEAM:"))
+        {
+            string teamStr = command.Substring(5);
+            if (Enum.TryParse(teamStr, out EChessTeam receivedTeam))
+            {
+                Debug.Log($"[ChessGameManager] Received TEAM command : {receivedTeam}");
+                StartNetworkGame(receivedTeam);
+            }
+        }
+        else if (command == "SHOW_COLOR_SELECTION")
+        {
+            GUIManager.Instance.ShowColorSelection();
+        }
+        else
+        {
+            Debug.LogWarning("[ChessGameManager] Unknown GameState command : " + command);
+        }
+    }
+    
 
     public void PlayTurn(Move move, bool isNetworkMove)
     {
@@ -197,20 +236,16 @@ public partial class ChessGameManager : MonoBehaviour
             // If local move, send it to the network
             if (!isNetworkMove)
             {
-                string msg = $"{move.from}-{move.to}\n";
+                string moveStr = $"{move.from}-{move.to}";
 
-                if (ServerManager.Instance != null && ServerManager.Instance.Server != null && ServerManager.Instance.Server.HasClient)
-                {
-                    // Server to client
-                    ServerManager.Instance.Server.BroadcastMessage(msg);
-                }
+                if (ServerManager.Instance?.Server != null && ServerManager.Instance.Server.HasClient)
+                    ServerManager.Instance.Server.BroadcastMessage(MessageBuilder.MessageType.PlayerAction, moveStr);
                 else
                 {
-                    // Client to server
                     Client m_client = FindFirstObjectByType<Client>();
-                    if (m_client != null && m_client.IsConnected)
+                    if (m_client && m_client.IsConnected)
                     {
-                        m_client.SendChatMessage(msg);
+                        m_client.SendMessage(MessageBuilder.MessageType.PlayerAction, moveStr);
                     }
                 }
             }
@@ -375,7 +410,7 @@ public partial class ChessGameManager : MonoBehaviour
         Debug.Log("[ChessManager] Waiting for server/client to be ready...");
         while (true)
         {
-            bool hasServer = ServerManager.Instance != null && ServerManager.Instance.Server != null;
+            bool hasServer = ServerManager.Instance && ServerManager.Instance.Server != null;
             bool hasClient = hasServer && ServerManager.Instance.Server.HasClient;
             if (hasClient)
                 break;
@@ -560,11 +595,10 @@ public partial class ChessGameManager : MonoBehaviour
 
     public bool CanLocalPlayerPlay()
     {
-        if(localPlayerTeam == EChessTeam.Spectator)
-        {
+        if (localPlayerTeam == EChessTeam.Spectator)
             return false;
-        }
-        return localPlayerTeam != EChessTeam.None && teamTurn == localPlayerTeam;
+        
+        return localPlayerTeam != EChessTeam.None && localPlayerTeam != EChessTeam.Spectator && teamTurn == localPlayerTeam;
     }
 
     void ComputeDrag()

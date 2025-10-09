@@ -25,24 +25,6 @@ public class Client : MonoBehaviour
     public bool IsConnected => m_clientSocket != null && !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
     private string m_receiveBuffer = "";
 
-    public bool IsConnected
-    {
-        get
-        {
-            if (m_clientSocket == null)
-                return false;
-
-            try
-            {
-                return !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-    }
-
     #endregion
     
     
@@ -68,48 +50,9 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
 
-        string messageChunk = ReceiveChatMessage();
-        if (!string.IsNullOrEmpty(messageChunk))
-        {
-            m_receiveBuffer += messageChunk;
-
-            int newLineIndex;
-            while ((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
-            {
-                string fullMessage = m_receiveBuffer.Substring(0, newLineIndex).Trim();
-                m_receiveBuffer = m_receiveBuffer.Substring(newLineIndex + 1);
-
-                if (string.IsNullOrEmpty(fullMessage))
-                    continue;
-
-                Debug.Log("[Client] Received : " + fullMessage);
-
-                if (fullMessage.StartsWith("TEAM:"))
-                {
-                    string teamStr = fullMessage.Substring(5);
-                    if (Enum.TryParse(teamStr, out ChessGameManager.EChessTeam assignedTeam))
-                    {
-                        ChessGameManager.Instance.StartNetworkGame(assignedTeam);
-                        Debug.Log($"[Client] Assigned team: {assignedTeam}");
-                    }
-                    continue;
-                }
-
-                if (fullMessage == "SHOW_COLOR_SELECTION")
-                {
-                    Debug.Log("[Client] Displaying color selection UI");
-                    GUIManager.Instance.ShowColorSelection();
-                    continue;
-                }
-                if (fullMessage == "START_GAME")
-                {
-                    Debug.Log("[Client] Game starting!");
-                    continue;
-                }
-
-                ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
-            }
-        }
+        Message msg = ReceiveMessage(m_clientSocket);
+        if (msg != null)
+            HandleMessage(msg);
     }
 
     #endregion
@@ -202,7 +145,8 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
 
-        byte[] messageBytes = Encoding.UTF8.GetBytes(message + "\n");
+        byte[] contentBytes = Encoding.UTF8.GetBytes(content);
+        byte[] message = MessageBuilder.BuildMessage(type, contentBytes);
 
         try
         {
@@ -285,18 +229,24 @@ public class Client : MonoBehaviour
                 Debug.Log("[Client] Chat : " + content);
                 break;
 
-            case MessageBuilder.MessageType.GameState:
-                Debug.Log("[Client] GameState : " + content);
-                // TODO: Update local board state
-                break;
-
             case MessageBuilder.MessageType.PlayerAction:
-                Debug.Log("[Client] PlayerAction : " + content);
-                // TODO: Mirror opponent action
+                if (content.Contains("-"))
+                {
+                    ChessGameManager.Instance.ApplyNetworkMove(content);
+                    Debug.Log("[Client] PlayerAction received: " + content);
+                }
+
+                else
+                    Debug.LogWarning("[Client] Ignored PlayerAction with invalid format: " + content);
+                break;
+            
+            case MessageBuilder.MessageType.GameState:
+                Debug.Log("[Client] GameState received: " + content);
+                ChessGameManager.Instance.ProcessNetworkGameCommand(content);
                 break;
 
             default:
-                Debug.LogWarning("[Client] Unknown message type : " + msg.Type);
+                Debug.LogWarning("[Client] Unknown message type: " + msg.Type);
                 break;
         }
     }

@@ -17,20 +17,6 @@ public class ServerManager : MonoBehaviour
     #endregion
     
     
-    #region Instance
-    public static ServerManager Instance
-    {
-        get
-        {
-            if (!m_instance)
-                m_instance = FindFirstObjectByType<ServerManager>();
-            return m_instance;
-        }
-    }
-    
-    #endregion
-    
-    
     #region Unity Functions
     private void Awake()
     {
