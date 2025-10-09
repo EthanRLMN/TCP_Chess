@@ -11,6 +11,22 @@ public class ServerManager : MonoBehaviour
     private Server m_server;
     
     public bool IsRunning => m_server != null;
+    public Server Server => m_server;
+    public bool isClientConnected => m_server != null && m_server.HasClient;
+    
+    #endregion
+    
+    
+    #region Instance
+    public static ServerManager Instance
+    {
+        get
+        {
+            if (!m_instance)
+                m_instance = FindFirstObjectByType<ServerManager>();
+            return m_instance;
+        }
+    }
     
     #endregion
     

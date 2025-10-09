@@ -23,6 +23,25 @@ public class Client : MonoBehaviour
     
     public string Nickname { get; set; }
     public bool IsConnected => m_clientSocket != null && !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
+    private string m_receiveBuffer = "";
+
+    public bool IsConnected
+    {
+        get
+        {
+            if (m_clientSocket == null)
+                return false;
+
+            try
+            {
+                return !(m_clientSocket.Poll(1, SelectMode.SelectRead) && m_clientSocket.Available == 0);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     #endregion
     
@@ -45,20 +64,59 @@ public class Client : MonoBehaviour
             m_isConnecting = false;
             Debug.Log("[Client] Connection completed!");
         }
-        
+
         if (!IsConnected)
             return;
-        
-        Message message = ReceiveMessage(m_clientSocket);
-        if (message != null)
-            HandleMessage(message);
+
+        string messageChunk = ReceiveChatMessage();
+        if (!string.IsNullOrEmpty(messageChunk))
+        {
+            m_receiveBuffer += messageChunk;
+
+            int newLineIndex;
+            while ((newLineIndex = m_receiveBuffer.IndexOf('\n')) != -1)
+            {
+                string fullMessage = m_receiveBuffer.Substring(0, newLineIndex).Trim();
+                m_receiveBuffer = m_receiveBuffer.Substring(newLineIndex + 1);
+
+                if (string.IsNullOrEmpty(fullMessage))
+                    continue;
+
+                Debug.Log("[Client] Received : " + fullMessage);
+
+                if (fullMessage.StartsWith("TEAM:"))
+                {
+                    string teamStr = fullMessage.Substring(5);
+                    if (Enum.TryParse(teamStr, out ChessGameManager.EChessTeam assignedTeam))
+                    {
+                        ChessGameManager.Instance.StartNetworkGame(assignedTeam);
+                        Debug.Log($"[Client] Assigned team: {assignedTeam}");
+                    }
+                    continue;
+                }
+
+                if (fullMessage == "SHOW_COLOR_SELECTION")
+                {
+                    Debug.Log("[Client] Displaying color selection UI");
+                    GUIManager.Instance.ShowColorSelection();
+                    continue;
+                }
+                if (fullMessage == "START_GAME")
+                {
+                    Debug.Log("[Client] Game starting!");
+                    continue;
+                }
+
+                ChessGameManager.Instance.ApplyNetworkMove(fullMessage);
+            }
+        }
     }
 
     #endregion
-    
-    
+
+
     #region Custom Methods
-    
+
     private void SetupClient()
     {
         if (m_clientSocket != null)
@@ -144,8 +202,7 @@ public class Client : MonoBehaviour
         if (!IsConnected)
             return;
 
-        byte[] contentBytes = Encoding.UTF8.GetBytes(content);
-        byte[] message = MessageBuilder.BuildMessage(type, contentBytes);
+        byte[] messageBytes = Encoding.UTF8.GetBytes(message + "\n");
 
         try
         {
