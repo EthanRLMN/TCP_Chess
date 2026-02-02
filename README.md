@@ -1,19 +1,16 @@
-Projet Chess TCP
+This project is a simple Chess Multiplayer Game made on Unity 6 only using the socket API, with a Listen Server architecture.
 
-Using Unity 6
 
-Multiplayer chess game where you can host the game and other player can join.
+- If you press the menu button, you can chose to host the game or to connect to one by IP adress.
+- You can change your name before connecting then it will appear on the chat box.
+- When at least one player is connected with the host, you can chose to play team white or team black.
+- You can also be a spectator when your are connected by pressing the spectator button.
+- The white team always start first.
+- When a king is eaten the board restart and the score is updated.
+- You can perform Castling move and promote pawn into queen.
+- There is a chat that can be used by everyone by pressing T, to remove it press escape or click everywhere but on the chat window and then press T.
 
--If you press the menu button, you can chose to host the game or to connect to one by IP adress.
--You can change your name before connecting then it will appear on the chat box.
--When at least one player is connected with the host, you can chose to play team white or team black.
--You can also be a spectator when your are connected by pressing the spectator button.
-    (issue)You cannot spectate a game that is already started, board won't update.
--The white team always start first.
--When a king is eaten the board restart and the score is updated.
-    (issue)If you leave during a game the board doesn't reset.
--You can perform Castling move and promote pawn into queen.
--There is a chat that can be used by everyone by pressing T, to remove it press escape or click everywhere but on the chat window and then press T.
 
-Ethan Ruhlmann
-Kenzo Ondet
+Project made in a group of 2 students :
+- Kenzo Ondet
+- Ethan Ruhlmann
